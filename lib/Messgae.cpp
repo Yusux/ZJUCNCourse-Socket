@@ -11,23 +11,26 @@ Message::Message(bool increase_pakage_id) {
     data_ = {};
 }
 
-Message::Message(const void *buffer, size_t size) {
-    if (size < 5) {
+Message::Message(const void *buffer, ssize_t size) {
+    if (size < 6) {
         throw std::runtime_error("Message buffer too small.");
     }
     const uint8_t *buffer_ptr = reinterpret_cast<const uint8_t *>(buffer);
 
     // get the packet id, type, sender id and receiver id
-    pakage_id_ = buffer_ptr[0];
-    type_ = (MessageType)buffer_ptr[1];
-    sender_id_ = buffer_ptr[2];
-    receiver_id_ = buffer_ptr[3];
-    uint8_t num_data = buffer_ptr[4];
+    pakage_id_ = *(reinterpret_cast<const uint16_t *>(buffer));
+    type_ = (MessageType)buffer_ptr[2];
+    sender_id_ = buffer_ptr[3];
+    receiver_id_ = buffer_ptr[4];
+    uint8_t num_data = buffer_ptr[5];
 
     // get the data, every data is a vector of uchar
-    size_t data_size = size - 5;
-    const uint8_t *data_ptr = buffer_ptr + 5;
+    ssize_t data_size = size - 6;
+    const uint8_t *data_ptr = buffer_ptr + 6;
     for (int i = 0; i < num_data; i++) {
+        if (data_size < 1) {
+            throw std::runtime_error("Message buffer error.");
+        }
         uint8_t data_length = data_ptr[0];
         if ((data_length + 1) > data_size) {
             throw std::runtime_error("Message buffer overflow.");
@@ -52,14 +55,13 @@ Message::Message(MessageType type,
 }
 
 Message::Message(const Message &other) {
-    pakage_id_ = pakage_id_counter_;
+    pakage_id_ = other.pakage_id_;
     type_ = other.type_;
     sender_id_ = other.sender_id_;
     receiver_id_ = other.receiver_id_;
     data_ = other.data_;
 }
 
-Message::~Message() = default;
 
 uint16_t Message::get_pakage_id() const {
     return pakage_id_;
@@ -105,12 +107,17 @@ void Message::set_data(const data_t &data) {
     data_ = data;
 }
 
-size_t Message::serialize(std::vector<uint8_t> &buffer) const {
+ssize_t Message::serialize(std::vector<uint8_t> &buffer) const {
+    if (data_.size() > 255) {
+        throw std::runtime_error("Message data too large.");
+    }
+
     // clear the buffer
     buffer.clear();
 
     // add the packet id, type, sender id and receiver id
-    buffer.push_back(pakage_id_);
+    buffer.resize(2);
+    *(reinterpret_cast<uint16_t *>(buffer.data())) = pakage_id_;
     buffer.push_back((uint8_t)type_);
     buffer.push_back(sender_id_);
     buffer.push_back(receiver_id_);
@@ -125,6 +132,38 @@ size_t Message::serialize(std::vector<uint8_t> &buffer) const {
     return buffer.size();
 }
 
+ssize_t Message::get_serialized_size() const {
+    ssize_t size = 6;
+    for (auto &data : data_) {
+        size += data.size() + 1;
+    }
+    return size;
+}
+
+ssize_t Message::check_valid_message(const void *buffer, ssize_t size) {
+    if (size < 6) {
+        return -1;
+    }
+    const uint8_t *buffer_ptr = reinterpret_cast<const uint8_t *>(buffer);
+
+    // get the packet id, type, sender id and receiver id
+    uint8_t num_data = buffer_ptr[5];
+
+    // get the data, every data is a vector of uchar
+    ssize_t data_size = size - 6;
+    const uint8_t *data_ptr = buffer_ptr + 6;
+    for (int i = 0; i < num_data; i++) {
+        if (data_size < 1) {
+            return -1;
+        }
+        uint8_t data_length = data_ptr[0];
+        data_ptr += data_length + 1;
+        data_size -= data_length + 1;
+    }
+
+    return data_ptr - buffer_ptr;
+}
+
 std::string Message::to_string() const {
     std::string str = "Message(";
     str += "pakage_id=" + std::to_string(pakage_id_);
@@ -137,4 +176,15 @@ std::string Message::to_string() const {
     }
     str += "])";
     return str;
+}
+
+Message& Message::operator=(const Message& other) {
+    if (this != &other) {
+        pakage_id_ = other.pakage_id_;
+        type_ = other.type_;
+        sender_id_ = other.sender_id_;
+        receiver_id_ = other.receiver_id_;
+        data_ = other.data_;
+    }
+    return *this;
 }

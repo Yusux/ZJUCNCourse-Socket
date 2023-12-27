@@ -70,14 +70,33 @@ Server::Server(
 
     // Save the socket.
     socketfd_ = socketfd;
+
+    // Create the lists.
+    clientinfo_list_ = std::unique_ptr<std::map<uint8_t, std::unique_ptr<ClientInfo> > >(
+        new std::map<uint8_t, std::unique_ptr<ClientInfo> >()
+    );
+    client_thread_list_ = std::unique_ptr<std::map<uint8_t, std::unique_ptr<std::thread> > >(
+        new std::map<uint8_t, std::unique_ptr<std::thread> >()
+    );
+    message_status_map_ = std::unique_ptr<Map<uint16_t, PacketInfo> >(
+        new Map<uint16_t, PacketInfo>()
+    );
 }
 
 Server::~Server() {
     std::cout << "[INFO] Release the server." << std::endl;
     // Close all the client connections.
-    for (auto it = clientinfo_list_.begin(); it != clientinfo_list_.end(); it++) {
+    for (auto it = clientinfo_list_->begin(); it != clientinfo_list_->end(); it++) {
         // Send a DISCONNECT REQUEST.
         send_res_t result = it->second->get_sender()->send_disconnect_request(it->first);
+        // Insert the message into the message_status_map_.
+        // Key is DISCONNECT REQUEST's package id, value is the DISCONNECT REQUEST's package info.
+        message_status_map_->insert_or_assign(result.first, PacketInfo{
+            result.first,
+            SERVER_ID,
+            it->first,
+            MessageType::DISCONNECT
+        });
     }
 
     std::cout << "[INFO] Release the client threads." << std::endl;
@@ -120,7 +139,7 @@ uint8_t Server::wait_for_client() {
     // Create a client info.
     // Find a valid client id.
     uint8_t id = 1;
-    while (clientinfo_list_.find(id) != clientinfo_list_.end()) {
+    while (clientinfo_list_->find(id) != clientinfo_list_->end()) {
         id++;
     }
     if (id == 0) {
@@ -135,35 +154,35 @@ uint8_t Server::wait_for_client() {
         sender,
         receiver
     );
-    clientinfo_list_.insert_or_assign(id, std::move(client_info));
+    clientinfo_list_->insert_or_assign(id, std::move(client_info));
     // Create a thread for the client.
     std::unique_ptr<std::thread> client_thread = std::make_unique<std::thread>(
         &Server::receive_from_client,
         this,
         id
     );
-    if (client_thread_list_.find(id) != client_thread_list_.end()) {
-        client_thread_list_[id]->join();
-        client_thread_list_[id].release();
+    if (client_thread_list_->find(id) != client_thread_list_->end()) {
+        client_thread_list_->at(id)->join();
+        client_thread_list_->at(id).release();
     }
-    client_thread_list_.insert_or_assign(id, std::move(client_thread));
+    client_thread_list_->insert_or_assign(id, std::move(client_thread));
 
     // Send a CONNECT RESPONSE.
-    clientinfo_list_[id]->get_sender()->send_acknowledge(request.get_pakage_id(), id);
+    clientinfo_list_->at(id)->get_sender()->send_acknowledge(request.get_pakage_id(), id);
 
     return id;
 }
 
 void Server::receive_from_client(uint8_t client_id) {
     // Check if the client id is valid.
-    if (clientinfo_list_.find(client_id) == clientinfo_list_.end()) {
+    if (clientinfo_list_->find(client_id) == clientinfo_list_->end()) {
         throw std::runtime_error("Server Receive From Client failed: invalid client id.");
     }
 
-    Receiver *receiver = clientinfo_list_[client_id]->get_receiver();
-    Sender *sender = clientinfo_list_[client_id]->get_sender();
+    Receiver *receiver = clientinfo_list_->at(client_id)->get_receiver();
+    Sender *sender = clientinfo_list_->at(client_id)->get_sender();
 
-    Message message(false);
+    Message message;
     std::cout << "[INFO] waiting for message..." << std::endl;
     while (receiver->receive(message)) {
         // Print the message.
@@ -173,11 +192,11 @@ void Server::receive_from_client(uint8_t client_id) {
             // Send an ACK.
             sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id());
             // Remove the client.
-            clientinfo_list_.erase(client_id);
+            clientinfo_list_->erase(client_id);
             break;
         } else if (message.get_type() == MessageType::REQSEND) {
             // Try to find the receiver.
-            if (clientinfo_list_.find(message.get_receiver_id()) == clientinfo_list_.end()) {
+            if (clientinfo_list_->find(message.get_receiver_id()) == clientinfo_list_->end()) {
                 // Not found.
                 data_t data;
                 data.push_back("The receiver is not found.");
@@ -187,19 +206,50 @@ void Server::receive_from_client(uint8_t client_id) {
             }
 
             // Found, Send a FWD.
-            send_res_t result = clientinfo_list_[message.get_receiver_id()]->get_sender()->send_forward(message);
-            // Wait for an ACK from the receiver.
-            Message response(false);
-            clientinfo_list_[message.get_receiver_id()]->get_receiver()->receive(response);
-            if (!check_afk(response, result, message.get_receiver_id())) {
-                data_t data;
-                data.push_back("Error in connection between the server and the receiver.");
-                std::cerr << "[ERR] Error in connection between the server and the receiver." << std::endl;
-                sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id(), data);
+            send_res_t result = clientinfo_list_->at(message.get_receiver_id())->get_sender()->send_forward(message);
+            // Insert the message into the massage_type_map_.
+            // Key is FWD's package id, value is the REQSEND's package info.
+            message_status_map_->insert_or_assign(result.first, PacketInfo{
+                message.get_pakage_id(),
+                message.get_sender_id(),
+                message.get_receiver_id(),
+                MessageType::FWD
+            });
+        } else if (message.get_type() == MessageType::ACK) {
+            // Check if the message is in the message_status_map_.
+            if (message_status_map_->find(message.get_pakage_id()) == message_status_map_->end()) {
+                // Not found, do nothing.
                 continue;
             }
-            // Send an ACK.
-            sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id());
+
+            // Found, check if the original message is a DISCONNECT REQUEST.
+            PacketInfo packet_info = message_status_map_->at(message.get_pakage_id());
+            message_status_map_->erase(message.get_pakage_id());
+            if (packet_info.message_type == MessageType::DISCONNECT) {
+                // DISCONNECT REQUEST, close the thread.
+                break;
+            }
+
+            // Then check if the message is a FWD.
+            // Check if the receiver and sender is swapped.
+            if (message.get_sender_id() == packet_info.receiver_id &&
+                message.get_receiver_id() == packet_info.sender_id) {
+                // Swapped, success, send an ACK to the sender before (the receiver now).
+                clientinfo_list_->at(packet_info.sender_id)->get_sender()->send_acknowledge(
+                    packet_info.package_id,
+                    packet_info.sender_id
+                );
+            } else {
+                // Not swapped, send error message to the sender before.
+                data_t data;
+                data.push_back("Error in connection between the server and the receiver.");
+                std::cerr << "[ERR] " << data[0] << std::endl;
+                clientinfo_list_->at(packet_info.sender_id)->get_sender()->send_acknowledge(
+                    packet_info.package_id,
+                    packet_info.sender_id,
+                    data
+                );
+            }
         } else if (message.get_type() == MessageType::REQCLILIST) {
             // Send a ACK.
             data_t data;
@@ -210,7 +260,7 @@ void Server::receive_from_client(uint8_t client_id) {
              * 4. port
              * Different clients are separated by '\n'. (The last one is also followed by '\n'.)
              */
-            for (auto it = clientinfo_list_.begin(); it != clientinfo_list_.end(); it++) {
+            for (auto it = clientinfo_list_->begin(); it != clientinfo_list_->end(); it++) {
                 std::string id_str = std::to_string(it->first);
                 std::string name_str = it->second->get_name();
                 std::string ip_str = inet_ntoa(it->second->get_addr().sin_addr);
@@ -236,12 +286,14 @@ void Server::receive_from_client(uint8_t client_id) {
             data.push_back(name_);
             sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id(), data);
         }
+        std::cout << "Done message: " << message.to_string() << std::endl;
         std::cout << "[INFO] Waiting for message..." << std::endl;
     }
+    std::cout << "[INFO] Client " << (int)client_id << " disconnected." << std::endl;
 }
 
 void Server::join_threads() {
-    for (auto it = client_thread_list_.begin(); it != client_thread_list_.end(); it++) {
+    for (auto it = client_thread_list_->begin(); it != client_thread_list_->end(); it++) {
         it->second->join();
     }
 }
@@ -255,9 +307,9 @@ void Server::run() {
             if (!running_) {
                 break;
             }
-            std::cout << "[INFO] " << clientinfo_list_[id]->get_name() << "(ID: " << (int)id << ") connected." << std::endl;
-            std::cout << "[INFO] Address: " << inet_ntoa(clientinfo_list_[id]->get_addr().sin_addr) << std::endl;
-            std::cout << "[INFO] Port: " << ntohs(clientinfo_list_[id]->get_addr().sin_port) << std::endl;
+            std::cout << "[INFO] " << clientinfo_list_->at(id)->get_name() << "(ID: " << (int)id << ") connected." << std::endl;
+            std::cout << "[INFO] Address: " << inet_ntoa(clientinfo_list_->at(id)->get_addr().sin_addr) << std::endl;
+            std::cout << "[INFO] Port: " << ntohs(clientinfo_list_->at(id)->get_addr().sin_port) << std::endl;
         } catch (std::exception &e) {
             std::cerr << "[ERR] " << e.what() << std::endl;
         }

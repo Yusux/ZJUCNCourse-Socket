@@ -4,12 +4,21 @@
 #include "def.hpp"
 #include "Message.hpp"
 #include <mutex>
+#include <sys/epoll.h>
+#include <queue>
 
 class Receiver {
 private:
+    std::mutex mutex_;
     int socketfd_;
+    int epollfd_;
+    std::vector<epoll_event> events_;
     uint8_t self_id_;
     std::vector<uint8_t> buffer_;
+    // It seems that message_queue_ is not needed
+    // to be protected by another mutex.
+    std::vector<uint8_t> remaining_buffer_;
+    std::queue<Message> message_queue_;
 
 public:
     /*
@@ -18,10 +27,7 @@ public:
      * @param self_id: The id of the receiver.
      */
     explicit Receiver(int socket, uint8_t self_id);
-    /*
-     * Destructor.
-     */
-    ~Receiver();
+    ~Receiver() {}
 
     /*
      * Change self_id_.
@@ -34,7 +40,7 @@ public:
      * @param message: The message to receive.
      * @return: The number of bytes received.
      */
-    size_t receive(Message &message);
+    ssize_t receive(Message &message);
 };
 
 #endif

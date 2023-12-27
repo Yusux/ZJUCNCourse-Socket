@@ -12,46 +12,46 @@ private:
 
 public:
     Map() {}
-    ~Map() = default;
+    ~Map() {}
 
     auto insert_or_assign(const K &key, const V &value) {
-        // std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
         return map_.insert_or_assign(key, value);
     }
 
     auto erase(const K &key) {
-        // std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
         return map_.erase(key);
     }
 
-    auto at(const K &key) {
-        // std::lock_guard<std::mutex> lock(mutex_);
+    V &at(const K &key) {
+        std::lock_guard<std::mutex> lock(mutex_);
         return map_.at(key);
     }
 
     auto find(const K &key) {
-        // std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
         return map_.find(key);
     }
 
     auto begin() {
-        // std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
         return map_.begin();
     }
 
     auto end() {
-        // std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
         return map_.end();
     }
 
     bool clear() {
-        // std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
         map_.clear();
         return true;
     }
 
     bool empty() {
-        // std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(mutex_);
         return map_.empty();
     }
 };

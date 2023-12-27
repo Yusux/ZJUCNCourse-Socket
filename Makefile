@@ -2,7 +2,7 @@ export
 CC=g++
 LD=g++
 INCLUDE=-I $(shell pwd)/include -I $(shell pwd)/src/include
-CF=-g
+CF=-O2
 CFLAG=${CF} ${INCLUDE}
 
 .PHONY: all clean

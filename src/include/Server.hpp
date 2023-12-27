@@ -5,11 +5,11 @@
 #include "Message.hpp"
 #include "Receiver.hpp"
 #include "Sender.hpp"
+#include "Map.hpp"
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <memory>
-#include <map>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
@@ -40,6 +40,13 @@ public:
     Receiver *get_receiver();
 };
 
+struct PacketInfo {
+    uint16_t package_id;
+    uint8_t sender_id;
+    uint8_t receiver_id;
+    MessageType message_type;
+};
+
 class Server {
 private:
     int socketfd_;
@@ -47,8 +54,10 @@ private:
     sockaddr_in server_addr_;
     uint8_t self_id_;
     bool running_;
-    std::map<uint8_t, std::unique_ptr<ClientInfo> > clientinfo_list_;
-    std::map<uint8_t, std::unique_ptr<std::thread> > client_thread_list_;
+    std::unique_ptr<std::map<uint8_t, std::unique_ptr<ClientInfo> > > clientinfo_list_;
+    std::unique_ptr<std::map<uint8_t, std::unique_ptr<std::thread> > > client_thread_list_;
+    // Use Map with mutex tp protect the message_status_map_.
+    std::unique_ptr<Map<uint16_t, PacketInfo> > message_status_map_;
 
     /*
      * Wait for clients to connect.

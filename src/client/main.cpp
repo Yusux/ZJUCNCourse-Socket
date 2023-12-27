@@ -130,7 +130,9 @@ int main(int argc, char *argv[]) {
                     // transform the id to uint8_t.
                     uint8_t receiver_id = (uint8_t)id;
                     std::cout << "[INFO] Sending message \"" << content << "\" to client " << (int)receiver_id << std::endl;
-                    client.send_message(receiver_id, content);
+                    // for (int i = 0; i < 100; i++) {
+                        client.send_message(receiver_id, content);
+                    // }
                     break;
                 }
                 case Choice::HELP : {

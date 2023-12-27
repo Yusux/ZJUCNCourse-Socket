@@ -3,11 +3,13 @@
 
 #include "def.hpp"
 #include "Message.hpp"
+#include <mutex>
 
 class Sender {
 private:
     int socketfd_;
     uint8_t self_id_;
+    std::mutex mutex_;
     std::vector<uint8_t> buffer_;
 
 public:
@@ -17,10 +19,7 @@ public:
      * @param self_id: The id of the sender.
      */
     explicit Sender(int socket, uint8_t self_id);
-    /*
-     * Destructor.
-     */
-    ~Sender();
+    ~Sender() {}
 
     /*
      * Change self_id_.

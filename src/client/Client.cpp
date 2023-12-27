@@ -95,7 +95,7 @@ bool Client::connect_to_server(in_addr_t addr, int port) {
                 )
             )
         );
-        std::cout << "[INFO] Connected to the server." << std::endl;
+        std::cout << "[INFO] Connected to the server with name \"" << name_ << "\" and id \"" << (int)self_id_ << "\"." << std::endl;
     } else {
         // Error in connection.
         close(socketfd);
@@ -172,12 +172,14 @@ bool Client::get_client_list() {
 }
 
 bool Client::send_message(uint8_t receiver_id, std::string content) {
+    static int cnt = 0;
     // Check if connected to the server.
     if (socketfd_ < 0) {
         throw std::runtime_error("Request failed: not connected to the server.");
     }
 
     // Send a Request Send.
+    std::cout << std::endl << "[DEBUG] Send message No." << ++cnt << std::endl;
     send_res_t result = sender_->send_request_send(receiver_id, content);
     if (message_type_map_->find(result.first) != message_type_map_->end()) {
         throw std::runtime_error("Request Send failed: pakage id already exists.");
@@ -193,10 +195,12 @@ void Client::receive_message() {
         throw std::runtime_error("Disconnect Request failed: not connected to the server.");
     }
 
-    Message message(false);
+    Message message;
+    int cnt = 0;
     while (receiver_->receive(message)) {
+        std::cout << std::endl << "[DEBUG] Receive message No." << ++cnt << " : " << message.to_string() << std::endl;
         // Check the type of the message
-        if (message.get_type () == MessageType::DISCONNECT) {
+        if (message.get_type() == MessageType::DISCONNECT) {
             // Send an ACK.
             sender_->send_acknowledge(message.get_pakage_id(), message.get_sender_id());
             break;
@@ -285,8 +289,6 @@ void Client::receive_message() {
                 if (data.size() != 0) {
                     std::string error_msg = "[ERR] Request Send failed: " + data[0];
                     std::cerr << std::endl << error_msg << std::endl;
-                    // ignore the message.
-                    continue;
                 } else {
                     std::cout << std::endl << "[INFO] Request Send succeeded." << std::endl;
                 }
