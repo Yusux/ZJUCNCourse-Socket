@@ -19,7 +19,7 @@ The packet is defined as follows:
 +----------------+----------------+----------------+----------------+
 |          Packet  Index          |  Packet  Type  |  Sender    ID  |
 +----------------+----------------+----------------+----------------+
-|  Receiver  ID  |  Elements  Num |  Element1 Len  | Element1 Start |     ......     |
+|  Receiver  ID  |  Elements  Num |  Element1 Len  | Element1 Start |
 +----------------+----------------+----------------+----------------+
 |     ......     |     ......     |     ......     |  Element1 End  |
 +----------------+----------------+----------------+----------------+
