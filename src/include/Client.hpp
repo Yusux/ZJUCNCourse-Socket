@@ -5,20 +5,42 @@
 #include "Message.hpp"
 #include "Receiver.hpp"
 #include "Sender.hpp"
+#include "Map.hpp"
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <memory>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
 
 class Client {
 private:
     int socketfd_;
     const std::string name_;
     sockaddr_in server_addr_;
-    unsigned char self_id_;
+    uint8_t self_id_;
+
+    std::unique_ptr<std::thread> receive_thread_;
+
     std::unique_ptr<Sender> sender_;
     std::unique_ptr<Receiver> receiver_;
-    Message last_msg_;
+    std::unique_ptr<Map<uint16_t, MessageType> > message_type_map_;
+
+    /*
+     * Keep receiving messages from the server.
+     */
+    void receive_message();
+
+    /*
+     * Print the message queue.
+     */
+    void output_message();
+
+    /*
+     * Join the threads.
+     */
+    void join_threads();
 
 public:
     /*
@@ -46,19 +68,19 @@ public:
      * Get the time from the server.
      * @return The time from the server.
      */
-    std::string get_time();
+    bool get_time();
 
     /*
      * Get the name of the server.
      * @return The name of the server.
      */
-    std::string get_name();
+    bool get_name();
 
     /*
      * Get the list of the clients.
      * @return The list of the clients.
      */
-    data_t get_client_list();
+    bool get_client_list();
 
     /*
      * Send a message to the server.
@@ -66,18 +88,7 @@ public:
      * @param content The content of the message.
      * @return Whether the sending is successful.
      */
-    bool send_message(unsigned char receiver_id, std::string content);
-
-    /*
-     * Keep receiving messages from the server.
-     * @param message The message received.
-     */
-    void receive_message();
-
-    // Gets
-    std::string get_name() const;
-    unsigned char get_self_id() const;
-    Message get_last_msg() const;
+    bool send_message(uint8_t receiver_id, std::string content);
 };
 
 #endif

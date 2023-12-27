@@ -1,6 +1,54 @@
 #include "Client.hpp"
 #include <iostream>
 
+enum Choice {
+    BAD_CHOICE = -1,
+    EXIT = 0,
+    CONNECT = 1,
+    DISCONNECT,
+    GET_TIME,
+    GET_NAME,
+    GET_CLIENT_LIST,
+    SEND_MESSAGE,
+    HELP
+};
+
+Choice get_choice(std::string choice) {
+    if (choice == "exit") {
+        return EXIT;
+    } else if (choice == "connect") {
+        return CONNECT;
+    } else if (choice == "disconnect") {
+        return DISCONNECT;
+    } else if (choice == "gettime") {
+        return GET_TIME;
+    } else if (choice == "gethost") {
+        return GET_NAME;
+    } else if (choice == "getcli") {
+        return GET_CLIENT_LIST;
+    } else if (choice == "send") {
+        return SEND_MESSAGE;
+    } else if (choice == "help") {
+        return HELP;
+    } else {
+        return BAD_CHOICE;
+    }
+}
+
+void print_help() {
+    std::cout << "1. connect: Connect to the server." << std::endl
+                << "2. disconnect: Disconnect from the server." << std::endl
+                << "3. gettime: Get the time from the server." << std::endl
+                << "4. gethost: Get the name of the server." << std::endl
+                << "5. getcli: Get the list of the clients." << std::endl
+                << "6. send <id> \"<content>\": Send a message to a client." << std::endl
+                << "\t<id>: The id of the receiver." << std::endl
+                << "\t<content>: The content of the message. Need to be quoted." << std::endl
+                << "7. help: Print this message." << std::endl
+                << "0. exit: Exit." << std::endl
+                << std::endl;
+}
+
 int main(int argc, char *argv[]) {
     // Prepare arguments.
     char *hostname = new char[128];
@@ -10,8 +58,6 @@ int main(int argc, char *argv[]) {
     in_addr_t addr = SERVER_ADDR;
     int port = SERVER_PORT;
 
-    // If there are arguments, use them.
-    // in order: <name> <addr> <port>
     if (argc > 1) {
         name = argv[1];
     }
@@ -22,106 +68,87 @@ int main(int argc, char *argv[]) {
         port = atoi(argv[3]);
     }
 
-    std::cout << "Client name: " << name << std::endl;
-    std::cout << "Server address: " << inet_ntoa(*(in_addr *)&addr) << std::endl;
-    std::cout << "Server port: " << port << std::endl;
-
+    std::cout << "[INFO] Client name: " << name << std::endl;
+    std::cout << "[INFO] Server address: " << inet_ntoa(*(in_addr *)&addr) << std::endl;
+    std::cout << "[INFO] Server port: " << port << std::endl;
+    
     // Create a client.
     Client client(name);
 
-    /*
-     * 1. Connect to the server.
-     * 2. Disconnect from the server.
-     * 3. Get the time from the server.
-     * 4. Get the name of the server.
-     * 5. Get the list of the clients.
-     * 6. Send a message to a client.
-     * 0. Exit.
-     */
-
-    int choice = -1;
+    print_help();
+    std::string input;
     while (true) {
-        std::cin >> choice;
+        std::cout << "client> ";
+        std::getline(std::cin, input);
+        if (input == "") {
+            continue;
+        }
+        std::string choice = input.substr(0, input.find(' '));
         try {
-            switch (choice) {
-                case 1: {
+            switch (get_choice(choice)) {
+                case Choice::CONNECT : {
                     // Connect to the server.
-                    if (client.connect_to_server(addr, port)) {
-                        std::cout << "Connected to the server." << std::endl;
-                    } else {
-                        std::cout << "Failed to connect to the server." << std::endl;
-                    }
+                    client.connect_to_server(addr, port);
                     break;
                 }
-                case 2: {
+                case Choice::DISCONNECT : {
                     // Disconnect from the server.
-                    if (client.disconnect_from_server()) {
-                        std::cout << "Disconnected from the server." << std::endl;
-                    } else {
-                        std::cout << "Failed to disconnect from the server." << std::endl;
-                    }
+                    client.disconnect_from_server();
                     break;
                 }
-                case 3: {
+                case Choice::GET_TIME : {
                     // Get the time from the server.
-                    std::string time = client.get_time();
-                    std::cout << "Time: " << time << std::endl;
+                    client.get_time();
                     break;
                 }
-                case 4: {
+                case Choice::GET_NAME : {
                     // Get the name of the server.
-                    std::string name = client.get_name();
-                    std::cout << "Server name: " << name << std::endl;
+                    client.get_name();
                     break;
                 }
-                case 5: {
+                case Choice::GET_CLIENT_LIST : {
                     // Get the list of the clients.
-                    data_t client_list = client.get_client_list();
-                    std::cout << "Client list:" << std::endl;
-                    for (int i = 0; i < client_list.size(); i += 5) {
-                        std::cout << "ID: " << client_list[i] << std::endl;
-                        std::cout << "Name: " << client_list[i + 1] << std::endl;
-                        std::cout << "Address: " << client_list[i + 2] << std::endl;
-                        std::cout << "Port: " << client_list[i + 3] << std::endl;
-                        std::cout << std::endl;
-                    }
+                    client.get_client_list();
                     break;
                 }
-                case 6: {
-                    // Send a message to a client.
-                    int id_read;
-                    std::string content;
-                    std::cin >> id_read >> content;
-                    // ensure that the id is valid.
-                    if (id_read < 0 || id_read > 255) {
-                        throw std::runtime_error("Invalid client id.");
+                case Choice::SEND_MESSAGE : {
+                    int pos1 = input.find(' ');
+                    int pos2 = input.find('\"', pos1 + 1);
+                    int pos3 = input.find('\"', pos2 + 1);
+                    if (pos1 == std::string::npos || pos2 == std::string::npos || pos3 == std::string::npos) {
+                        std::cerr << "[WARN] Invalid input: " << input << std::endl;
+                        break;
                     }
-                    // transform the id to unsigned char.
-                    unsigned char receiver_id = (unsigned char)id_read;
-                    std::cout << "Sending message \"" << content << "\" to client " << (int)receiver_id << std::endl;
-                    if (client.send_message(receiver_id, content)) {
-                        std::cout << "Message sent." << std::endl;
-                    } else {
-                        std::cout << "Failed to send message." << std::endl;
+                    // Get the id and the content.
+                    std::string id_str = input.substr(pos1 + 1, pos2 - pos1 - 2);
+                    std::string content = input.substr(pos2 + 1, pos3 - pos2 - 1);
+                    int id = atoi(id_str.c_str());
+                    if (id < 0 || id > 255) {
+                        std::cerr << "[WARN] Invalid id." << std::endl;
+                        break;
                     }
+                    // transform the id to uint8_t.
+                    uint8_t receiver_id = (uint8_t)id;
+                    std::cout << "[INFO] Sending message \"" << content << "\" to client " << (int)receiver_id << std::endl;
+                    client.send_message(receiver_id, content);
                     break;
                 }
-                case 7: {
-                    // Keep receiving messages from the server.
-                    client.receive_message();
+                case Choice::HELP : {
+                    // Help.
+                    print_help();
                     break;
                 }
-                case 0: {
+                case Choice::EXIT : {
                     // Exit.
                     return 0;
                 }
                 default: {
-                    std::cout << "Invalid choice." << std::endl;
+                    std::cerr << "[WARN] Invalid choice." << std::endl;
                     break;
                 }
             }
         } catch (std::exception &e) {
-            std::cerr << e.what() << std::endl;
+            std::cerr << "[ERR] " << e.what() << std::endl;
         }
     }
 }

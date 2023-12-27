@@ -17,9 +17,9 @@ The packet is defined as follows:
 ``` text
 0                 8                16               24               32
 +----------------+----------------+----------------+----------------+
-|  Packet  Index |  Packet  Type  |  Sender    ID  |  Receiver  ID  |
+|          Packet  Index          |  Packet  Type  |  Sender    ID  |
 +----------------+----------------+----------------+----------------+
-|  Elements  Num |  Element1 Len  | Element1 Start |     ......     |
+|  Receiver  ID  |  Elements  Num |  Element1 Len  | Element1 Start |     ......     |
 +----------------+----------------+----------------+----------------+
 |     ......     |     ......     |     ......     |  Element1 End  |
 +----------------+----------------+----------------+----------------+

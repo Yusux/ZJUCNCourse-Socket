@@ -7,8 +7,8 @@
 class Sender {
 private:
     int socketfd_;
-    unsigned char self_id_;
-    std::vector<unsigned char> buffer_;
+    uint8_t self_id_;
+    std::vector<uint8_t> buffer_;
 
 public:
     /*
@@ -16,7 +16,7 @@ public:
      * @param socket: The socket to send messages on.
      * @param self_id: The id of the sender.
      */
-    explicit Sender(int socket, unsigned char self_id);
+    explicit Sender(int socket, uint8_t self_id);
     /*
      * Destructor.
      */
@@ -26,7 +26,7 @@ public:
      * Change self_id_.
      * @param self_id: The new self_id.
      */
-    void set_self_id(unsigned char self_id);
+    void set_self_id(uint8_t self_id);
 
     // FOR CLIENTS ONLY
     /*
@@ -41,7 +41,7 @@ public:
      * @param receiver_id: The id of the receiver.
      * @return: The message id and the number of bytes sent.
      */
-    send_res_t send_disconnect_request(unsigned char receiver_id = SERVER_ID);
+    send_res_t send_disconnect_request(uint8_t receiver_id = SERVER_ID);
 
     /*
      * Send a REQUEST TIME packet.
@@ -67,7 +67,7 @@ public:
      * @param msg_string: The message to send.
      * @return: The message id and the number of bytes sent.
      */
-    send_res_t send_request_send(unsigned char receiver_id,
+    send_res_t send_request_send(uint8_t receiver_id,
                                                        std::string msg_string);
 
     // FOR SERVER AND CLIENTS
@@ -78,9 +78,9 @@ public:
      * @param data: The data to send with the acknowledgement.
      * @return: The message id and the number of bytes sent.
      */
-    send_res_t send_acknowledge(unsigned char pakage_id,
-                        unsigned char receiver_id,
-                        const data_t &data = {});
+    send_res_t send_acknowledge(uint16_t pakage_id,
+                                uint8_t receiver_id,
+                                const data_t &data = {});
 
     /*
      * Send a FORWARD packet.

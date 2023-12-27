@@ -10,21 +10,26 @@
 #include <arpa/inet.h>
 #include <memory>
 #include <map>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
 
 class ClientInfo {
 private:
     int socketfd_;
     std::string name_;
     sockaddr_in addr_;
-    unsigned char client_id_;
+    uint8_t client_id_;
     std::unique_ptr<Sender> sender_;
     std::unique_ptr<Receiver> receiver_;
+    std::unique_ptr<std::map<uint16_t, MessageType> > message_type_map_;
+
 
 public:
     ClientInfo(std::string name,
                sockaddr_in addr,
                int socketfd,
-               unsigned char id,
+               uint8_t id,
                Sender *sender,
                Receiver *receiver);
     ~ClientInfo();
@@ -40,9 +45,28 @@ private:
     int socketfd_;
     const std::string name_;
     sockaddr_in server_addr_;
-    unsigned char self_id_;
-    Message last_msg_;
-    client_map_t client_list_;
+    uint8_t self_id_;
+    bool running_;
+    std::map<uint8_t, std::unique_ptr<ClientInfo> > clientinfo_list_;
+    std::map<uint8_t, std::unique_ptr<std::thread> > client_thread_list_;
+
+    /*
+     * Wait for clients to connect.
+     * @return a valid client id.
+     */
+    uint8_t wait_for_client();
+
+    /*
+     * Keep receiving messages from the client.
+     * @param client_id The id of the client.
+     * @param message The message to be received.
+     */
+    void receive_from_client(uint8_t client_id);
+
+    /*
+     * Join the threads.
+     */
+    void join_threads();
 
 public:
     /*
@@ -53,20 +77,17 @@ public:
     ~Server();
 
     /*
-     * Wait for clients to connect.
-     * @return a valid client id.
+     * Run the server.
+     * Keeping accepting connections from clients.
+     * Once a client is connected, a thread will be created for the client
+     * to receive messages from the client and do the corresponding actions.
      */
-    unsigned char wait_for_client();
+    void run();
 
     /*
-     * Keep receiving messages from the client.
-     * @param client_id The id of the client.
-     * @param message The message to be received.
+     * Stop the server.
      */
-    void receive_from_client(unsigned char client_id);
-
-    std::string get_client_name(unsigned char client_id);
-    sockaddr_in get_client_addr(unsigned char client_id);
+    void stop();
 };
 
 #endif

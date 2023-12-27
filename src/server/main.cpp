@@ -22,20 +22,30 @@ int main(int argc, char *argv[]) {
         port = atoi(argv[3]);
     }
 
+    std::cout << "[INFO] Server host name: " << name << std::endl;
+    std::cout << "[INFO] Server address: " << inet_ntoa(*(in_addr *)&addr) << std::endl;
+    std::cout << "[INFO] Server port: " << port << std::endl;
+
     // Create a server.
-    Server server(name, addr, port);
+    std::unique_ptr<Server> server;
+    try {
+        server = std::unique_ptr<Server>(new Server(name, addr, port));
+    } catch (std::exception &e) {
+        std::cout << "[ERR] " << e.what() << std::endl;
+        return 1;
+    }
 
-    // Wait for clients to connect.
-    unsigned char id = server.wait_for_client();
-    std::cout << server.get_client_name(id) << "(ID: " << (int)id << ") connected." << std::endl;
-    std::cout << "Address: " << inet_ntoa(server.get_client_addr(id).sin_addr) << std::endl;
-    std::cout << "Port: " << ntohs(server.get_client_addr(id).sin_port) << std::endl;
-    // Wait for clients to connect.
-    id = server.wait_for_client();
-    std::cout << server.get_client_name(id) << "(ID: " << (int)id << ") connected." << std::endl;
-    std::cout << "Address: " << inet_ntoa(server.get_client_addr(id).sin_addr) << std::endl;
-    std::cout << "Port: " << ntohs(server.get_client_addr(id).sin_port) << std::endl;
+    std::thread runner(&Server::run, server.get());
 
-    // keep receiving messages from the client.
-    server.receive_from_client(id);
+    std::string command;
+    while (true) {
+        std::cin >> command;
+        if (command == "exit") {
+            server->stop();
+            runner.join();
+            break;
+        } else {
+            std::cout << "[INFO] Please enter \"exit\" to close the server." << std::endl;
+        }
+    }
 }

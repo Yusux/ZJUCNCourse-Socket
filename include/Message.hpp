@@ -19,11 +19,11 @@ enum class MessageType {
 
 class Message {
 private:
-    static unsigned char pakage_id_counter_;
-    unsigned char pakage_id_;
+    static uint16_t pakage_id_counter_;
+    uint16_t pakage_id_;
     MessageType type_;
-    unsigned char sender_id_;
-    unsigned char receiver_id_;
+    uint8_t sender_id_;
+    uint8_t receiver_id_;
     data_t data_;
 
 public:
@@ -47,8 +47,8 @@ public:
      * @param increase_pakage_id: Whether to increase the pakage id.
      */
     explicit Message(MessageType type,
-                     unsigned char sender_id,
-                     unsigned char receiver_id,
+                     uint8_t sender_id,
+                     uint8_t receiver_id,
                      const data_t &data = {},
                      bool increase_pakage_id = true);
     /*
@@ -62,18 +62,18 @@ public:
     ~Message();
 
     // Getters
-    unsigned char get_pakage_id() const;
+    uint16_t get_pakage_id() const;
     MessageType get_type() const;
-    unsigned char get_sender_id() const;
-    unsigned char get_receiver_id() const;
+    uint8_t get_sender_id() const;
+    uint8_t get_receiver_id() const;
     data_t get_data() const;
 
     // Setters
-    void set_pakage_id(unsigned char pakage_id);
+    void set_pakage_id(uint16_t pakage_id);
     void set_pakage_id_to_next();
     void set_type(MessageType type);
-    void set_sender_id(unsigned char sender_id);
-    void set_receiver_id(unsigned char receiver_id);
+    void set_sender_id(uint8_t sender_id);
+    void set_receiver_id(uint8_t receiver_id);
     void set_data(const data_t &data);
 
     /*
@@ -82,7 +82,7 @@ public:
      * @param size: The size of the buffer.
      * @return: The size of the serialized message.
      */
-    size_t serialize(std::vector<unsigned char> &buffer) const;
+    size_t serialize(std::vector<uint8_t> &buffer) const;
 
     /*
      * Turns the message into a string.
@@ -91,7 +91,7 @@ public:
     std::string to_string() const;
 };
 
-inline bool check_afk(const Message &message, const send_res_t &result, unsigned char sender_id = SERVER_ID) {
+inline bool check_afk(const Message &message, const send_res_t &result, uint8_t sender_id = SERVER_ID) {
     return message.get_type() == MessageType::ACK  &&
            message.get_pakage_id() == result.first &&
            message.get_sender_id() == sender_id;

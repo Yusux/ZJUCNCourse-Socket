@@ -3,12 +3,13 @@
 
 #include "def.hpp"
 #include "Message.hpp"
+#include <mutex>
 
 class Receiver {
 private:
     int socketfd_;
-    unsigned char self_id_;
-    std::vector<unsigned char> buffer_;
+    uint8_t self_id_;
+    std::vector<uint8_t> buffer_;
 
 public:
     /*
@@ -16,7 +17,7 @@ public:
      * @param socket: The socket to receive messages on.
      * @param self_id: The id of the receiver.
      */
-    explicit Receiver(int socket, unsigned char self_id);
+    explicit Receiver(int socket, uint8_t self_id);
     /*
      * Destructor.
      */
@@ -26,7 +27,7 @@ public:
      * Change self_id_.
      * @param self_id: The new self_id.
      */
-    void set_self_id(unsigned char self_id);
+    void set_self_id(uint8_t self_id);
 
     /*
      * Receive a message.
