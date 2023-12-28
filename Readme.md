@@ -107,6 +107,7 @@ Package Type is defined as follows:
     - Send the message to the server first to forward to the target host.
   - All the elements are the message to be sent.
 - ACK(7): The packet is used to send the ack between the client and the server.
+  - Packet Index is the same as the index of the packet to be acknowledged.
   - Sender ID is self ID.
   - Receiver ID is target host ID.
   - Can carry data.
