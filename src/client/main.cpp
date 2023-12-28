@@ -79,7 +79,7 @@ bool process_command(std::string command,
                 connect_port = atoi(connect_port_str.c_str());
             }
             // Connect to the server.
-            client->connect_to_server(addr, port);
+            client->connect_to_server(connect_addr, connect_port);
             break;
         }
         case Choice::DISCONNECT : {
