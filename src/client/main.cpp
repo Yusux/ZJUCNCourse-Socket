@@ -46,7 +46,7 @@ void print_help() {
                 << "3. gettime: Get the time from the server." << std::endl
                 << "4. gethost: Get the name of the server." << std::endl
                 << "5. getcli: Get the list of the clients." << std::endl
-                << "6. send <id> \"<content>\": Send a message to a client->" << std::endl
+                << "6. send <id> \"<content>\": Send a message to a client." << std::endl
                 << "\t<id>: The id of the receiver." << std::endl
                 << "\t<content>: The content of the message. Need to be quoted." << std::endl
                 << "7. help: Print this message." << std::endl
@@ -106,7 +106,9 @@ bool process_command(std::string command,
             int pos1 = command.find(' ');
             int pos2 = command.find('\"', pos1 + 1);
             int pos3 = command.find('\"', pos2 + 1);
-            if (pos1 == std::string::npos || pos2 == std::string::npos || pos3 == std::string::npos) {
+            if (pos1 == std::string::npos ||
+                pos2 == std::string::npos ||
+                pos3 == std::string::npos) {
                 std::cerr << "[WARN] Invalid input: " << command << std::endl;
                 break;
             }
@@ -120,7 +122,8 @@ bool process_command(std::string command,
             }
             // transform the id to uint8_t.
             uint8_t receiver_id = (uint8_t)id;
-            std::cout << "[INFO] Sending message \"" << content << "\" to client " << (int)receiver_id << std::endl;
+            std::cout << "[INFO] Sending message \"" << content
+                      << "\" to client " << (int)receiver_id << std::endl;
             // for (int i = 0; i < 100; i++) {
                 client->send_message(receiver_id, content);
             // }
@@ -166,7 +169,7 @@ int main(int argc, char *argv[]) {
     std::cout << "[INFO] Server address: " << inet_ntoa(*(in_addr *)&addr) << std::endl;
     std::cout << "[INFO] Server port: " << port << std::endl;
     
-    // Create a client->
+    // Create a client.
     std::shared_ptr<Client> client = std::shared_ptr<Client>(new Client(name));
     // Create a thread to get commands.
     std::future<std::string> command_future = std::async(std::launch::async, get_command);

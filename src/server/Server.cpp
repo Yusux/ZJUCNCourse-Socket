@@ -3,6 +3,7 @@
 #include <iostream>
 #include <chrono>
 #include <ctime>
+#include <cstring>
 
 ClientInfo::ClientInfo(
     std::string name,
@@ -50,19 +51,26 @@ Server::Server(
     // Create a socket.
     int socketfd = socket(AF_INET, SOCK_STREAM, 0);
     if (socketfd < 0) {
-        throw std::runtime_error("Server Init failed: failed to create a socket.");
+        std::string error_msg = "Server Init failed: failed to create a socket. errno: " +
+                                std::to_string(errno) + " " + strerror(errno);
+        throw std::runtime_error(error_msg);
     }
 
     // Set the socket to be reusable.
     int opt = 1;
     if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-        throw std::runtime_error("Server Init failed: failed to set the socket to be reusable.");
+        close(socketfd);
+        std::string error_msg = "Server Init failed: failed to set the socket to be reusable. errno: " +
+                                std::to_string(errno) + " " + strerror(errno);
+        throw std::runtime_error(error_msg);
     }
 
     // Bind the socket to the server address and port.
     if (bind(socketfd, cast_sockaddr_in(server_addr_), sizeof(server_addr_)) < 0) {
         close(socketfd);
-        throw std::runtime_error("Server Init failed: failed to bind the socket to the server address and port.");
+        std::string error_msg = "Server Init failed: failed to bind the socket to the server address and port. errno: " +
+                                std::to_string(errno) + " " + strerror(errno);
+        throw std::runtime_error(error_msg);
     }
 
     // Listen for connections for maximum MAX_CLIENT_NUM clients.
@@ -113,10 +121,16 @@ uint8_t Server::wait_for_client() {
     socklen_t client_addr_len = sizeof(client_addr);
     int client_socketfd = accept(socketfd_, cast_sockaddr_in(client_addr), &client_addr_len);
     if (!running_) {
+        // if the server is not running, close the socket and return.
+        if (client_socketfd >= 0) {
+            close(client_socketfd);
+        }
         return 0;
     }
     if (client_socketfd < 0) {
-        throw std::runtime_error("Server Wait For Client failed: failed to accept a connection.");
+        std::string error_msg = "Server Wait For Client failed: failed to accept a connection. errno: " +
+                                std::to_string(errno) + " " + strerror(errno);
+        throw std::runtime_error(error_msg);
     }
 
     // Receive a CONNECT REQUEST.
@@ -127,11 +141,13 @@ uint8_t Server::wait_for_client() {
     // Check if the message is a valid CONNECT REQUEST.
     if (request.get_type() != MessageType::CONNECT ||
         request.get_receiver_id() != SERVER_ID) {
+        close(client_socketfd);
         throw std::runtime_error("Server Wait For Client failed: invalid connection request.");
     }
 
     // Get the name of the client.
     if (request.get_data().size() != 1) {
+        close(client_socketfd);
         throw std::runtime_error("Server Wait For Client failed: invalid connection request.");
     }
     std::string client_name = request.get_data()[0];
@@ -143,7 +159,8 @@ uint8_t Server::wait_for_client() {
         id++;
     }
     if (id == 0) {
-        throw std::runtime_error("Server Wait For Client failed: too many clients.");
+        close(client_socketfd);
+        throw std::runtime_error("Server Wait For Client failed: no free client id.");
     }
     // Create a client info.
     std::unique_ptr<ClientInfo> client_info = std::make_unique<ClientInfo>(
@@ -206,7 +223,8 @@ void Server::receive_from_client(uint8_t client_id) {
             }
 
             // Found, Send a FWD.
-            send_res_t result = clientinfo_list_->at(message.get_receiver_id())->get_sender()->send_forward(message);
+            send_res_t result =
+                clientinfo_list_->at(message.get_receiver_id())->get_sender()->send_forward(message);
             // Insert the message into the massage_type_map_.
             // Key is FWD's package id, value is the REQSEND's package info.
             message_status_map_->insert_or_assign(result.first, PacketInfo{
@@ -264,7 +282,10 @@ void Server::receive_from_client(uint8_t client_id) {
                 std::string name_str = it->second->get_name();
                 std::string ip_str = inet_ntoa(it->second->get_addr().sin_addr);
                 std::string port_str = std::to_string(ntohs(it->second->get_addr().sin_port));
-                std::string client_str = id_str + DIVISION_SIGNAL + name_str + DIVISION_SIGNAL + ip_str + DIVISION_SIGNAL + port_str + DIVISION_SIGNAL;
+                std::string client_str = id_str + DIVISION_SIGNAL +
+                                         name_str + DIVISION_SIGNAL +
+                                         ip_str + DIVISION_SIGNAL +
+                                         port_str + DIVISION_SIGNAL;
                 data.push_back(client_str);
             }
             sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id(), data);

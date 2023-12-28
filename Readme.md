@@ -4,9 +4,13 @@
 
 This is a simple socket programming project for the course Computer Network. The project has implemented a simple socket server and client, which can be used to send messages between clients by relaying on the server using Non-blocking socket receiver and epoll.
 
-It seems epoll is not necessary for this project since the server can handle multiple clients by creating multiple threads. However, I still use epoll to implement the server since it is a good practice.
-
 ## Usage
+
+This project is developed and tested on Arch Linux (6.6.2-arch1-1) and Debian 12. MacOS and Windows are not supported since `epoll` is not supported on these platforms.
+
+> It seems epoll is not necessary for this project since the server can handle multiple clients by creating multiple threads. However, I still use epoll to implement the server since it is a good practice. If you want to transfer the project to other platforms, you can try to remove the epoll part (or use `select` `poll` instead of `epoll). It should work.
+
+<!-- see linux release version: `cat /etc/*-release` -->
 
 ### Server
 
