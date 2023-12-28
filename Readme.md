@@ -8,7 +8,10 @@ This is a simple socket programming project for the course Computer Network. The
 
 This project is developed and tested on Arch Linux (6.6.2-arch1-1) and Debian 12. MacOS and Windows are not supported since `epoll` is not supported on these platforms.
 
-> It seems epoll is not necessary for this project since the server can handle multiple clients by creating multiple threads. However, I still use epoll to implement the server since it is a good practice. If you want to transfer the project to other platforms, you can try to remove the epoll part (or use `select` `poll` instead of `epoll). It should work.
+> ~~It seems epoll is not necessary for this project since the server can handle multiple clients by creating multiple threads. However, I still use epoll to implement the server since it is a good practice.~~
+> Here I use `epoll` to poll the socket with some certain timeout in order to avoid the busy waiting while receiving the message non-blockingly.
+> If you want to transfer the project to other platforms, you can try to ~~remove the epoll part (or~~ use `select` `poll` instead of `epoll` ~~)~~. It should work. :)
+> Moreover, in this project, I use `future` in main function to wait for user's input. It can be replaced by `select` `poll` `epoll` to wait for both user's input and message queue.
 
 <!-- see linux release version: `cat /etc/*-release` -->
 

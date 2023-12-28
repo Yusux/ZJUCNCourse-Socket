@@ -1,10 +1,10 @@
 #ifndef __DEF_HPP__
 #define __DEF_HPP__
 
-#define MAX_BUFFER_SIZE 1024
+#define MAX_BUFFER_SIZE 4096
 #define MAX_CLIENT_NUM 255
 #define MAX_EPOLL_EVENTS 1
-#define TIMEOUT -1
+#define TIMEOUT 200
 
 #define SERVER_ID 0
 #define SERVER_ADDR INADDR_ANY

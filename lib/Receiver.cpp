@@ -38,9 +38,10 @@ ssize_t Receiver::receive(Message &message) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (message_queue_.empty()) {
         // use epoll_wait to wait for the socket to be readable
-        int nfds = epoll_wait(epollfd_, events_.data(), MAX_EPOLL_EVENTS, TIMEOUT);
-        // if epoll_wait returns -1, it means that an error occurs
+        int nfds;
+        while ((nfds = epoll_wait(epollfd_, events_.data(), MAX_EPOLL_EVENTS, TIMEOUT)) == 0);
         // if epoll_wait returns 0, it means that the timeout expires
+        // if epoll_wait returns -1, it means that an error occurs
         if (nfds == -1) {
             std::string error_message = "epoll_wait error: nfds = " + std::to_string(nfds) + ", errno = " + std::to_string(errno);
             perror(error_message.c_str());
