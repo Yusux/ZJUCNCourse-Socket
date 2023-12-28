@@ -1,6 +1,7 @@
 #include "Client.hpp"
 #include <stdexcept>
 #include <iostream>
+#include <iomanip>
 #include <chrono>
 #include <ctime>
 
@@ -41,8 +42,10 @@ Client::~Client() {
         join_threads();
     } catch (const std::exception &e) {
         // Error in disconnection, delete socketfd_ anyway.
-        std::cerr << e.what() << std::endl;
-        std::cerr << "Release the client anyway." << std::endl;
+        // std::cerr << e.what() << std::endl;
+        // std::cerr << "Release the client anyway." << std::endl;
+        output_queue_->push("[WARN] " + std::string(e.what()));
+        output_queue_->push("[WARN] Release the client anyway.");
         // Close the socket.
         close(socketfd_);
         // Terminate the threads.
@@ -98,7 +101,8 @@ bool Client::connect_to_server(in_addr_t addr, int port) {
                 )
             )
         );
-        std::cout << "[INFO] Connected to the server with name \"" << name_ << "\" and id \"" << (int)self_id_ << "\"." << std::endl;
+        // std::cout << "[INFO] Connected to the server with name \"" << name_ << "\" and id \"" << (int)self_id_ << "\"." << std::endl;
+        output_queue_->push("[INFO] Connected to the server with name \"" + name_ + "\" and id \"" + std::to_string((int)self_id_) + "\".");
     } else {
         // Error in connection.
         close(socketfd);
@@ -182,7 +186,8 @@ bool Client::send_message(uint8_t receiver_id, std::string content) {
     }
 
     // Send a Request Send.
-    std::cout << std::endl << "[DEBUG] Send message No." << ++cnt << std::endl;
+    // std::cout << std::endl << "[DEBUG] Send message No." << ++cnt << std::endl;
+    output_queue_->push("[DEBUG] Send message No." + std::to_string(++cnt));
     send_res_t result = sender_->send_request_send(receiver_id, content);
     if (message_type_map_->find(result.first) != message_type_map_->end()) {
         throw std::runtime_error("Request Send failed: pakage id already exists.");
@@ -201,7 +206,8 @@ void Client::receive_message() {
     Message message;
     int cnt = 0;
     while (receiver_->receive(message)) {
-        std::cout << std::endl << "[DEBUG] Receive message No." << ++cnt << " : " << message.to_string() << std::endl;
+        // std::cout << std::endl << "[DEBUG] Receive message No." << ++cnt << " : " << message.to_string() << std::endl;
+        output_queue_->push("[DEBUG] Receive message No." + std::to_string(++cnt) + " : " + message.to_string());
         // Check the type of the message
         if (message.get_type() == MessageType::DISCONNECT) {
             // Send an ACK.
@@ -214,7 +220,8 @@ void Client::receive_message() {
                 content += str;
                 content += "$\n";
             }
-            std::cout << std::endl << "Message from client " << (int)message.get_sender_id() << ": " << content << std::endl;
+            // std::cout << std::endl << "Message from client " << (int)message.get_sender_id() << ": " << content << std::endl;
+            output_queue_->push("Message from client " + std::to_string((int)message.get_sender_id()) + ": " + content);
             // Send an ACK.
             sender_->send_acknowledge(message.get_pakage_id(), message.get_sender_id());
         } else if (message.get_type() == MessageType::ACK) {
@@ -230,12 +237,14 @@ void Client::receive_message() {
             message_type_map_->erase(message.get_pakage_id());
             // Check if the sender id is correct.
             if (message.get_sender_id() != SERVER_ID) {
-                std::cerr << std::endl << "[ERR] ACK failed: wrong sender id." << std::endl;
+                // std::cerr << std::endl << "[ERR] ACK failed: wrong sender id." << std::endl;
+                output_queue_->push("[ERR] ACK failed: wrong sender id.");
                 if (type != MessageType::DISCONNECT) {
                     // ignore the message.
                     continue;
                 } else {
-                    std::cerr << std::endl << "[WARN] Release the connection anyway." << std::endl;
+                    // std::cerr << std::endl << "[WARN] Release the connection anyway." << std::endl;
+                    output_queue_->push("[WARN] Release the connection anyway.");
                 }
             }
 
@@ -246,23 +255,28 @@ void Client::receive_message() {
                 // Get the time.
                 data_t data = message.get_data();
                 if (data.size() != 1) {
-                    std::cerr << std::endl << "[ERR] Request Time failed: data size is not 1." << std::endl;
+                    // std::cerr << std::endl << "[ERR] Request Time failed: data size is not 1." << std::endl;
+                    output_queue_->push("[ERR] Request Time failed: data size is not 1.");
                     // ignore the message.
                     continue;
                 }
                 std::string timestamp = data[0];
                 std::time_t t = std::stol(timestamp);
                 std::string time = std::ctime(&t);
-                std::cout << std::endl << "Time: " << time << std::endl;
+                // remove the '\n' at the end of the string.
+                time.pop_back();
+                output_queue_->push("Time: " + time);
             } else if (type == MessageType::REQHOST) {
                 // Get the name.
                 data_t data = message.get_data();
                 if (data.size() != 1) {
-                    std::cerr << std::endl << "[ERR] Request Host failed: data size is not 1." << std::endl;
+                    // std::cerr << std::endl << "[ERR] Request Host failed: data size is not 1." << std::endl;
+                    output_queue_->push("[ERR] Request Host failed: data size is not 1.");
                     // ignore the message.
                     continue;
                 }
-                std::cout << std::endl << "Server name: " << data[0] << std::endl;
+                // std::cout << std::endl << "Server name: " << data[0] << std::endl;
+                output_queue_->push("Server name: " + data[0]);
             } else if (type == MessageType::REQCLILIST) {
                 // Get the client list.
                 data_t data = message.get_data();
@@ -271,35 +285,57 @@ void Client::receive_message() {
                  * 2. name
                  * 3. ip
                  * 4. port
-                 * Different clients are separated by '\n'. (The last one is also followed by '\n'.)
                  */
-                if (data.size() % 5 != 0) {
-                    std::cerr << std::endl << "[ERR] Request Client List failed: data size is not a multiple of 5." << std::endl;
-                    // ignore the message.
-                    continue;
-                }
-                std::cout << std::endl << "---- Client List ----" << std::endl;
-                for (int i = 0; i < data.size(); i += 5) {
-                    std::cout << "ID: " << data[i] << std::endl;
-                    std::cout << "Name: " << data[i + 1] << std::endl;
-                    std::cout << "Address: " << data[i + 2] << std::endl;
-                    std::cout << "Port: " << data[i + 3] << std::endl;
-                    std::cout << "---------------------" << std::endl;
+                // std::cout << std::endl << "---- Client List ----" << std::endl;
+                output_queue_->push("---- Client List ----");
+                for (auto it : data) {
+                    // Find the positions of the 4 DIVISION_SIGNALs
+                    int pos1 = it.find(DIVISION_SIGNAL);
+                    int pos2 = it.find(DIVISION_SIGNAL, pos1 + 1);
+                    int pos3 = it.find(DIVISION_SIGNAL, pos2 + 1);
+                    int pos4 = it.find(DIVISION_SIGNAL, pos3 + 1);
+                    if (pos1 == std::string::npos ||
+                        pos2 == std::string::npos ||
+                        pos3 == std::string::npos ||
+                        pos4 == std::string::npos) {
+                        // std::cerr << std::endl << "[ERR] Request Client List failed: invalid data." << std::endl;
+                        output_queue_->push("[ERR] Request Client List failed: invalid data.");
+                        // ignore the message.
+                        continue;
+                    }
+                    std::string id_str = it.substr(0, pos1);
+                    std::string name_str = it.substr(pos1 + 1, pos2 - pos1 - 1);
+                    std::string ip_str = it.substr(pos2 + 1, pos3 - pos2 - 1);
+                    std::string port_str = it.substr(pos3 + 1, pos4 - pos3 - 1);
+                    // std::cout << std::setw(8) << std::left << "ID: " << std::right << id_str << std::endl;
+                    // std::cout << std::setw(8) << std::left << "Name: " << std::right << name_str << std::endl;
+                    // std::cout << std::setw(8) << std::left << "IP: " << std::right << ip_str << std::endl;
+                    // std::cout << std::setw(8) << std::left << "Port: " << std::right << port_str << std::endl;
+                    // std::cout << "---------------------" << std::endl;
+                    output_queue_->push("  ID: " + id_str);
+                    output_queue_->push("Name: " + name_str);
+                    output_queue_->push("  IP: " + ip_str);
+                    output_queue_->push("Port: " + port_str);
+                    output_queue_->push("---------------------");
                 }
             } else if (type == MessageType::REQSEND) {
                 // Get the result.
                 data_t data = message.get_data();
                 if (data.size() != 0) {
                     std::string error_msg = "[ERR] Request Send failed: " + data[0];
-                    std::cerr << std::endl << error_msg << std::endl;
+                    // std::cerr << std::endl << error_msg << std::endl;
+                    output_queue_->push(error_msg);
                 } else {
-                    std::cout << std::endl << "[INFO] Request Send succeeded." << std::endl;
+                    // std::cout << std::endl << "[INFO] Request Send succeeded." << std::endl;
+                    output_queue_->push("[INFO] Request Send succeeded.");
                 }
             } else {
-                std::cerr << std::endl << "[ERR] Unknown message type." << std::endl;
+                // std::cerr << std::endl << "[ERR] Unknown message type." << std::endl;
+                output_queue_->push("[ERR] Unknown message type.");
             }
         } else {
-            std::cerr << std::endl << "[ERR] Unknown message type." << std::endl;
+            // std::cerr << std::endl << "[ERR] Unknown message type." << std::endl;
+            output_queue_->push("[ERR] Unknown message type.");
         }
     }
     // Remove the connection.
@@ -307,7 +343,8 @@ void Client::receive_message() {
     socketfd_ = -1;
     sender_.release();
     receiver_.release();
-    std::cout << std::endl << "[INFO] Disconnected from the server." << std::endl;
+    // std::cout << std::endl << "[INFO] Disconnected from the server." << std::endl;
+    output_queue_->push("[INFO] Disconnected from the server.");
 }
 
 void Client::join_threads() {
@@ -321,6 +358,7 @@ bool Client::output_message() {
     if (output_queue_->empty()) {
         return false;
     }
+    std::cout << std::endl;
     while (!output_queue_->empty()) {
         std::string output = output_queue_->pop();
         std::cout << output << std::endl;

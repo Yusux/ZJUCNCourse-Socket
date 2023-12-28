@@ -258,18 +258,14 @@ void Server::receive_from_client(uint8_t client_id) {
              * 2. name
              * 3. ip
              * 4. port
-             * Different clients are separated by '\n'. (The last one is also followed by '\n'.)
              */
             for (auto it = clientinfo_list_->begin(); it != clientinfo_list_->end(); it++) {
                 std::string id_str = std::to_string(it->first);
                 std::string name_str = it->second->get_name();
                 std::string ip_str = inet_ntoa(it->second->get_addr().sin_addr);
                 std::string port_str = std::to_string(ntohs(it->second->get_addr().sin_port));
-                data.push_back(id_str);
-                data.push_back(name_str);
-                data.push_back(ip_str);
-                data.push_back(port_str);
-                data.push_back("\n");
+                std::string client_str = id_str + DIVISION_SIGNAL + name_str + DIVISION_SIGNAL + ip_str + DIVISION_SIGNAL + port_str + DIVISION_SIGNAL;
+                data.push_back(client_str);
             }
             sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id(), data);
         } else if (message.get_type() == MessageType::REQTIME) {
@@ -286,7 +282,7 @@ void Server::receive_from_client(uint8_t client_id) {
             data.push_back(name_);
             sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id(), data);
         }
-        std::cout << "Done message: " << message.to_string() << std::endl;
+        std::cout << "[INFO] Done message: " << message.to_string() << std::endl;
         std::cout << "[INFO] Waiting for message..." << std::endl;
     }
     std::cout << "[INFO] Client " << (int)client_id << " disconnected." << std::endl;

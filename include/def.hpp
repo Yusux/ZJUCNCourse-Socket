@@ -10,6 +10,8 @@
 #define SERVER_ADDR INADDR_ANY
 #define SERVER_PORT 2024
 
+#define DIVISION_SIGNAL '\0'
+
 #define data_t std::vector<std::string>
 #define send_res_t std::pair<uint16_t, ssize_t>
 

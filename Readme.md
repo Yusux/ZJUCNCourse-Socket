@@ -108,8 +108,10 @@ Package Type is defined as follows:
     - ACK to REQHOST
       - A string of the hostname.
     - ACK to REQCLI
-      - 5*k elements in the packet, where k is the number of clients.
-      - Every host is presented by 5 elements in the following format: `Client_ID Client_name Client_IP Client_port \n`
+      - k elements in the packet, where k is the number of clients.
+      - Every host is presented by 1 elements in the following format:
+        - `Client_ID#Client_name#Client_IP#Client_port#`
+        - `#` represents a chosen separator in `include/def.hpp`
     - ACK to REQSEND
       - If the message is sent successfully, the packet contains no data.
       - Else, the packet contains the error message.
