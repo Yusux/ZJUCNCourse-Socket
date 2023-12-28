@@ -137,7 +137,11 @@ For ID, server is always 0, and the client is 1, 2, 3, ... Maximum 255 clients.
 
 ### Sender & Receiver
 
-Sender and Receiver class are used to encapsulate the sender and receiver methods. We simply view them as 2 hosts here.
+Sender and Receiver class are used to encapsulate the sender and receiver methods.
+
+### Client & Server
+
+We simply view them as 2 hosts here.
 
 #### Connect
 
