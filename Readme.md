@@ -220,7 +220,7 @@ When client requests hostname, the client will send a REQHOST packet to the serv
 When client requests client list, the client will send a REQCLILIST packet to the server. The server will send an ACK packet carrying the client list to the client. The client will receive the ACK packet and print the client list.
 
 ``` text
-+------------+         REQCLILIST        +------------+
++------------+       REQCLILIST      +------------+
 |   Client   | --------------------> |   Server   |
 +------------+                       +------------+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
