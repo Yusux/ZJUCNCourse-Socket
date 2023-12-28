@@ -168,13 +168,13 @@ int main(int argc, char *argv[]) {
     std::cout << "[INFO] Client name: " << name << std::endl;
     std::cout << "[INFO] Server address: " << inet_ntoa(*(in_addr *)&addr) << std::endl;
     std::cout << "[INFO] Server port: " << port << std::endl;
-    
+    print_help();
+
     // Create a client.
     std::shared_ptr<Client> client = std::shared_ptr<Client>(new Client(name));
     // Create a thread to get commands.
     std::future<std::string> command_future = std::async(std::launch::async, get_command);
 
-    print_help();
     std::string command;
     std::future_status status;
     while (true) {
