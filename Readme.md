@@ -97,7 +97,7 @@ Package Type is defined as follows:
   - Sender ID is self ID.
   - Receiver ID is Server ID (0).
   - No Element in the packet.
-- REQCLI(5): The packet is used to request the list of all the clients connected to the server.
+- REQCLILIST(5): The packet is used to request the list of all the clients connected to the server.
   - Sender ID is self ID.
   - Receiver ID is Server ID (0).
   - No Element in the packet.
@@ -114,7 +114,7 @@ Package Type is defined as follows:
       - A string of the timestamp.
     - ACK to REQHOST
       - A string of the hostname.
-    - ACK to REQCLI
+    - ACK to REQCLILIST
       - k elements in the packet, where k is the number of clients.
       - Every host is presented by 1 elements in the following format:
         - `Client_ID#Client_name#Client_IP#Client_port#`
@@ -213,10 +213,10 @@ When client requests hostname, the client will send a REQHOST packet to the serv
 
 #### Request Client List
 
-When client requests client list, the client will send a REQCLI packet to the server. The server will send an ACK packet carrying the client list to the client. The client will receive the ACK packet and print the client list.
+When client requests client list, the client will send a REQCLILIST packet to the server. The server will send an ACK packet carrying the client list to the client. The client will receive the ACK packet and print the client list.
 
 ``` text
-+------------+         REQCLI        +------------+
++------------+         REQCLILIST        +------------+
 |   Client   | --------------------> |   Server   |
 +------------+                       +------------+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
