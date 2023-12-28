@@ -22,6 +22,9 @@ Client::Client(
 
     // Initialize the message_type_map_.
     message_type_map_ = std::make_unique<Map<uint16_t, MessageType> >();
+
+    // Initialize the message_queue_.
+    output_queue_ = std::make_unique<Queue<std::string> >();
 }
 
 Client::~Client() {
@@ -312,4 +315,15 @@ void Client::join_threads() {
         receive_thread_->join();
         receive_thread_.release();
     }
+}
+
+bool Client::output_message() {
+    if (output_queue_->empty()) {
+        return false;
+    }
+    while (!output_queue_->empty()) {
+        std::string output = output_queue_->pop();
+        std::cout << output << std::endl;
+    }
+    return true;
 }

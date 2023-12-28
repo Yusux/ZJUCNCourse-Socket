@@ -6,6 +6,7 @@
 #include "Receiver.hpp"
 #include "Sender.hpp"
 #include "Map.hpp"
+#include "Queue.hpp"
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -26,16 +27,12 @@ private:
     std::unique_ptr<Sender> sender_;
     std::unique_ptr<Receiver> receiver_;
     std::unique_ptr<Map<uint16_t, MessageType> > message_type_map_;
+    std::unique_ptr<Queue<std::string> > output_queue_;
 
     /*
      * Keep receiving messages from the server.
      */
     void receive_message();
-
-    /*
-     * Print the message queue.
-     */
-    void output_message();
 
     /*
      * Join the threads.
@@ -89,6 +86,12 @@ public:
      * @return Whether the sending is successful.
      */
     bool send_message(uint8_t receiver_id, std::string content);
+
+    /*
+     * Print the message queue.
+     * @return Whether the printing is successful.
+     */
+    bool output_message();
 };
 
 #endif
