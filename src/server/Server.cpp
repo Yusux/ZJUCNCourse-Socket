@@ -89,10 +89,13 @@ Server::Server(
     message_status_map_ = std::unique_ptr<Map<uint16_t, PacketInfo> >(
         new Map<uint16_t, PacketInfo>()
     );
+    output_queue_ = std::unique_ptr<Queue<std::string> >(
+        new Queue<std::string>()
+    );
 }
 
 Server::~Server() {
-    std::cout << "[INFO] Release the server." << std::endl;
+    output_queue_->push("[INFO] Release the server.");
     // Close all the client connections.
     for (auto it = clientinfo_list_->begin(); it != clientinfo_list_->end(); it++) {
         // Send a DISCONNECT REQUEST.
@@ -107,12 +110,15 @@ Server::~Server() {
         });
     }
 
-    std::cout << "[INFO] Release the client threads." << std::endl;
+    output_queue_->push("[INFO] Release the client threads.");
     // Join all the client threads.
     join_threads();
 
     // Close the socket.
     close(socketfd_);
+
+    // Output the remaining messages.
+    output_message();
 }
 
 uint8_t Server::wait_for_client() {
@@ -200,16 +206,30 @@ void Server::receive_from_client(uint8_t client_id) {
     Sender *sender = clientinfo_list_->at(client_id)->get_sender();
 
     Message message;
-    std::cout << "[INFO] waiting for message..." << std::endl;
+    output_queue_->push(
+        "[INFO] " + clientinfo_list_->at(client_id)->get_name() +
+        "(ID: " + std::to_string(client_id) + ") connected."
+    );
+    output_queue_->push(
+        "[INFO] Address: " +
+        std::string(
+            inet_ntoa(clientinfo_list_->at(client_id)->get_addr().sin_addr)
+        )
+    );
+    output_queue_->push(
+        "[INFO] Port: " +
+        std::to_string(
+            ntohs(clientinfo_list_->at(client_id)->get_addr().sin_port)
+        )
+    );
+    output_queue_->push("[INFO] waiting for message...");
     while (receiver->receive(message)) {
         // Print the message.
-        std::cout << "[DEBUG] message: " << message.to_string() << std::endl;
+        output_queue_->push("[DEBUG] Received message: " + message.to_string());
         // check the type of the message
         if (message.get_type () == MessageType::DISCONNECT) {
             // Send an ACK.
             sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id());
-            // Remove the client.
-            clientinfo_list_->erase(client_id);
             break;
         } else if (message.get_type() == MessageType::REQSEND) {
             // Try to find the receiver.
@@ -217,7 +237,7 @@ void Server::receive_from_client(uint8_t client_id) {
                 // Not found.
                 data_t data;
                 data.push_back("The receiver is not found.");
-                std::cerr << "[ERR] The receiver is not found." << std::endl;
+                output_queue_->push("[ERR] The receiver is not found.");
                 sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id(), data);
                 continue;
             }
@@ -261,7 +281,7 @@ void Server::receive_from_client(uint8_t client_id) {
                 // Not swapped, send error message to the sender before.
                 data_t data;
                 data.push_back("Error in connection between the server and the receiver.");
-                std::cerr << "[ERR] " << data[0] << std::endl;
+                output_queue_->push("[ERR] " + data[0]);
                 clientinfo_list_->at(packet_info.sender_id)->get_sender()->send_acknowledge(
                     packet_info.package_id,
                     packet_info.sender_id,
@@ -303,10 +323,15 @@ void Server::receive_from_client(uint8_t client_id) {
             data.push_back(name_);
             sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id(), data);
         }
-        std::cout << "[INFO] Done message: " << message.to_string() << std::endl;
-        std::cout << "[INFO] Waiting for message..." << std::endl;
+        output_queue_->push("[DEBUG] Done message: " + message.to_string());
+        output_queue_->push("[INFO] Waiting for message...");
     }
-    std::cout << "[INFO] Client " << (int)client_id << " disconnected." << std::endl;
+    output_queue_->push(
+        "[INFO] " + clientinfo_list_->at(client_id)->get_name() +
+        "(ID: " + std::to_string(client_id) + ") disconnected."
+    );
+    // Remove the client.
+    clientinfo_list_->erase(client_id);
 }
 
 void Server::join_threads() {
@@ -318,23 +343,31 @@ void Server::join_threads() {
 void Server::run() {
     while (running_) {
         try {
-            std::cout << "[INFO] Waiting for clients to connect..." << std::endl;
             // Wait for clients to connect.
             uint8_t id = wait_for_client();
             if (!running_) {
                 break;
             }
-            std::cout << "[INFO] " << clientinfo_list_->at(id)->get_name() << "(ID: " << (int)id << ") connected." << std::endl;
-            std::cout << "[INFO] Address: " << inet_ntoa(clientinfo_list_->at(id)->get_addr().sin_addr) << std::endl;
-            std::cout << "[INFO] Port: " << ntohs(clientinfo_list_->at(id)->get_addr().sin_port) << std::endl;
         } catch (std::exception &e) {
-            std::cerr << "[ERR] " << e.what() << std::endl;
+            output_queue_->push("[ERR] " + std::string(e.what()));
         }
     }
 }
 
 void Server::stop() {
-    std::cout << "[INFO] Stopping the server..." << std::endl;
+    output_queue_->push("[INFO] Stopping the server...");
     running_ = false;
     shutdown(socketfd_, SHUT_RDWR);
+}
+
+bool Server::output_message() {
+    if (output_queue_->empty()) {
+        return false;
+    }
+    std::cout << std::endl;
+    while (!output_queue_->empty()) {
+        std::string output = output_queue_->pop();
+        std::cout << output << std::endl;
+    }
+    return true;
 }

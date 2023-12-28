@@ -136,7 +136,7 @@ bool process_command(std::string command,
         }
         case Choice::EXIT : {
             // Exit.
-            return 0;
+            return false;
         }
         default: {
             std::cerr << "[WARN] Invalid choice." << std::endl;
@@ -193,8 +193,7 @@ int main(int argc, char *argv[]) {
         } else if (status == std::future_status::timeout) {
             continue;
         } else { // status == std::future_status::deferred
-            std::cerr << "[ERR] Deferred." << std::endl;
-            return 1;
+            throw std::runtime_error("Invalid future status (Deferred).");
         }
 
         // Parse the command.
@@ -209,4 +208,6 @@ int main(int argc, char *argv[]) {
             std::cerr << "[ERR] " << e.what() << std::endl;
         }
     }
+
+    return 0;
 }

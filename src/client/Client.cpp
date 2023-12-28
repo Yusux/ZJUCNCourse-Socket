@@ -54,6 +54,9 @@ Client::~Client() {
             pthread_cancel(handle);
         }
     }
+
+    // Output the remaining messages.
+    output_message();
 }
 
 bool Client::connect_to_server(in_addr_t addr, int port) {

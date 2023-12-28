@@ -1,5 +1,12 @@
 #include "Server.hpp"
 #include <iostream>
+#include <future>
+
+std::string get_command() {
+    std::string command;
+    std::getline(std::cin, command);
+    return command;
+}
 
 int main(int argc, char *argv[]) {
     // Prepare arguments.
@@ -35,17 +42,50 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Create a thread to run the server.
     std::thread runner(&Server::run, server.get());
+    // Create a thread to get commands.
+    std::future<std::string> command_future = std::async(std::launch::async, get_command);
 
     std::string command;
-    while (true) {
-        std::cin >> command;
-        if (command == "exit") {
-            server->stop();
-            runner.join();
-            break;
-        } else {
-            std::cout << "[INFO] Please enter \"exit\" to close the server." << std::endl;
+    std::future_status status;
+    try {
+        while (true) {
+            // Print outputs in the msg queue.
+            server->output_message();
+
+            // Get the command.
+            if (status == std::future_status::deferred) {
+                command_future = std::async(std::launch::async, get_command);
+            }
+            status = command_future.wait_for(std::chrono::milliseconds(1));
+            if (status == std::future_status::ready) {
+                command = command_future.get();
+                // Prepare but not start the next thread.
+                status = std::future_status::deferred;
+            } else if (status == std::future_status::timeout) {
+                continue;
+            } else { // status == std::future_status::deferred
+                throw std::runtime_error("Invalid future status (Deferred).");
+            }
+
+            if (command == "exit") {
+                break;
+            } else {
+                std::cout << "[INFO] Please enter \"exit\" to close the server." << std::endl;
+            }
         }
+    } catch (std::exception &e) {
+        // Stop the server.
+        server->stop();
+        runner.join();
+        std::cerr << "[ERR] " << e.what() << std::endl;
+        return 1;
     }
+
+    // Stop the server.
+    server->stop();
+    runner.join();
+
+    return 0;
 }

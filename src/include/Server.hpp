@@ -6,6 +6,7 @@
 #include "Receiver.hpp"
 #include "Sender.hpp"
 #include "Map.hpp"
+#include "Queue.hpp"
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -58,6 +59,7 @@ private:
     std::unique_ptr<std::map<uint8_t, std::unique_ptr<std::thread> > > client_thread_list_;
     // Use Map with mutex tp protect the message_status_map_.
     std::unique_ptr<Map<uint16_t, PacketInfo> > message_status_map_;
+    std::unique_ptr<Queue<std::string> > output_queue_;
 
     /*
      * Wait for clients to connect.
@@ -97,6 +99,12 @@ public:
      * Stop the server.
      */
     void stop();
+
+    /*
+     * Print the message queue.
+     * @return Whether the printing is successful.
+     */
+    bool output_message();
 };
 
 #endif
