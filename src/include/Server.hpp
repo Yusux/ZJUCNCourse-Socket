@@ -17,7 +17,7 @@
 
 class ClientInfo {
 private:
-    int socketfd_;
+    int sockfd_;
     std::string name_;
     sockaddr_in addr_;
     uint8_t client_id_;
@@ -29,7 +29,7 @@ private:
 public:
     ClientInfo(std::string name,
                sockaddr_in addr,
-               int socketfd,
+               int sockfd,
                uint8_t id,
                Sender *sender,
                Receiver *receiver);
@@ -50,7 +50,7 @@ struct PacketInfo {
 
 class Server {
 private:
-    int socketfd_;
+    int sockfd_;
     const std::string name_;
     sockaddr_in server_addr_;
     uint8_t self_id_;

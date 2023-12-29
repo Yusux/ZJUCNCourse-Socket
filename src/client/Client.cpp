@@ -13,7 +13,7 @@ Client::Client(
     server_addr_.sin_family = AF_INET;
 
     // Not to create a socket until call connect_to_server().
-    socketfd_ = -1;
+    sockfd_ = -1;
 
     // Not to connect to the server until call connect_to_server().
     sender_.release();
@@ -30,7 +30,7 @@ Client::Client(
 }
 
 Client::~Client() {
-    if (socketfd_ < 0) {
+    if (sockfd_ < 0) {
         // Not connected to the server.
         join_threads();
         return;
@@ -42,11 +42,11 @@ Client::~Client() {
         // Wait for the threads to finish.
         join_threads();
     } catch (const std::exception &e) {
-        // Error in disconnection, delete socketfd_ anyway.
+        // Error in disconnection, delete sockfd_ anyway.
         output_queue_->push("[WARN] " + std::string(e.what()));
         output_queue_->push("[WARN] Release the client anyway.");
         // Close the socket.
-        close(socketfd_);
+        close(sockfd_);
         // Terminate the threads.
         std::thread::native_handle_type handle;
         if (receive_thread_->joinable()) {
@@ -60,7 +60,7 @@ Client::~Client() {
 }
 
 bool Client::connect_to_server(in_addr_t addr, int port) {
-    if (socketfd_ >= 0) {
+    if (sockfd_ >= 0) {
         throw std::runtime_error("Connect Request failed: already connected to the server.");
     }
     // Prepare the server_addr_.
@@ -68,24 +68,24 @@ bool Client::connect_to_server(in_addr_t addr, int port) {
     server_addr_.sin_addr.s_addr = addr;
 
     // Create a socket.
-    int socketfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (socketfd < 0) {
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
         std::string error_msg = "Connect Request failed: failed to create a socket. errno: " +
                                 std::to_string(errno) + " " + strerror(errno);
         throw std::runtime_error(error_msg);
     }
 
     // Connect to the server.
-    if (connect(socketfd, cast_sockaddr_in(server_addr_), sizeof(server_addr_)) < 0) {
-        close(socketfd);
+    if (connect(sockfd, cast_sockaddr_in(server_addr_), sizeof(server_addr_)) < 0) {
+        close(sockfd);
         std::string error_msg = "Connect Request failed: failed to connect to the server. errno: " +
                                 std::to_string(errno) + " " + strerror(errno);
         throw std::runtime_error(error_msg);
     }
 
     // Create a sender and a receiver.
-    sender_ = std::make_unique<Sender>(socketfd, 0);
-    receiver_ = std::make_unique<Receiver>(socketfd, 0);
+    sender_ = std::make_unique<Sender>(sockfd, 0);
+    receiver_ = std::make_unique<Receiver>(sockfd, 0);
 
     // Send a Connect Request.
     send_res_t result = sender_->send_connect_request(name_);
@@ -107,21 +107,24 @@ bool Client::connect_to_server(in_addr_t addr, int port) {
                 )
             )
         );
-        output_queue_->push("[INFO] Connected to the server with name \"" + name_ + "\" and id \"" + std::to_string((int)self_id_) + "\".");
+        output_queue_->push(
+            "[INFO] Connected to the server with name \"" + name_ +
+            "\" and id \"" + std::to_string((int)self_id_) + "\"."
+        );
     } else {
         // Error in connection.
-        close(socketfd);
+        close(sockfd);
         throw std::runtime_error("Connect Request failed: error in connection.");
     }
 
     // Successfully connected to the server.
-    socketfd_ = socketfd;
+    sockfd_ = sockfd;
     return true;
 }
 
 bool Client::disconnect_from_server() {
     // Check if connected to the server.
-    if (socketfd_ < 0) {
+    if (sockfd_ < 0) {
         throw std::runtime_error("Request failed: not connected to the server.");
     }
 
@@ -137,7 +140,7 @@ bool Client::disconnect_from_server() {
 
 bool Client::get_time() {
     // Check if connected to the server.
-    if (socketfd_ < 0) {
+    if (sockfd_ < 0) {
         throw std::runtime_error("Request failed: not connected to the server.");
     }
 
@@ -153,7 +156,7 @@ bool Client::get_time() {
 
 bool Client::get_name() {
     // Check if connected to the server.
-    if (socketfd_ < 0) {
+    if (sockfd_ < 0) {
         throw std::runtime_error("Request failed: not connected to the server.");
     }
 
@@ -169,7 +172,7 @@ bool Client::get_name() {
 
 bool Client::get_client_list() {
     // Check if connected to the server.
-    if (socketfd_ < 0) {
+    if (sockfd_ < 0) {
         throw std::runtime_error("Request failed: not connected to the server.");
     }
 
@@ -186,7 +189,7 @@ bool Client::get_client_list() {
 bool Client::send_message(uint8_t receiver_id, std::string content) {
     static int cnt = 0;
     // Check if connected to the server.
-    if (socketfd_ < 0) {
+    if (sockfd_ < 0) {
         throw std::runtime_error("Request failed: not connected to the server.");
     }
 
@@ -203,7 +206,7 @@ bool Client::send_message(uint8_t receiver_id, std::string content) {
 
 void Client::receive_message() {
     // Check if connected to the server.
-    if (socketfd_ < 0) {
+    if (sockfd_ < 0) {
         throw std::runtime_error("Disconnect Request failed: not connected to the server.");
     }
 
@@ -331,8 +334,8 @@ void Client::receive_message() {
         }
     }
     // Remove the connection.
-    close(socketfd_);
-    socketfd_ = -1;
+    close(sockfd_);
+    sockfd_ = -1;
     sender_.release();
     receiver_.release();
     output_queue_->push("[INFO] Disconnected from the server.");

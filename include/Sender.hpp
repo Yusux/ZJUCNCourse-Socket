@@ -7,7 +7,7 @@
 
 class Sender {
 private:
-    int socketfd_;
+    int sockfd_;
     uint8_t self_id_;
     std::mutex mutex_;
     std::vector<uint8_t> buffer_;

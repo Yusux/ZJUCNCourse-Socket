@@ -3,7 +3,7 @@
 #include <fcntl.h>
 
 Receiver::Receiver(int socket, uint8_t self_id) {
-    socketfd_ = socket;
+    sockfd_ = socket;
     self_id_ = self_id;
     buffer_.resize(MAX_BUFFER_SIZE);
 
@@ -11,21 +11,21 @@ Receiver::Receiver(int socket, uint8_t self_id) {
     epollfd_ = epoll_create(MAX_EPOLL_EVENTS);
     epoll_event event;
     event.events = EPOLLIN | EPOLLET;
-    event.data.fd = socketfd_;
-    epoll_ctl(epollfd_, EPOLL_CTL_ADD, socketfd_, &event);
+    event.data.fd = sockfd_;
+    epoll_ctl(epollfd_, EPOLL_CTL_ADD, sockfd_, &event);
     events_.resize(MAX_EPOLL_EVENTS);
 
     // change the socket to non-blocking
-    int oldSocketFlag = fcntl(socketfd_, F_GETFL, 0);
+    int oldSocketFlag = fcntl(sockfd_, F_GETFL, 0);
     int newSocketFlag = oldSocketFlag | O_NONBLOCK;
-    fcntl(socketfd_, F_SETFL,  newSocketFlag);
+    fcntl(sockfd_, F_SETFL,  newSocketFlag);
 
     // // set keepalive
     // int keepalive = 1;
     // int keepidle = 60;
     // int keepinterval = 5;
     // int keepcount = 3;
-    // setsockopt(socketfd_, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive, sizeof(keepalive));
+    // setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive, sizeof(keepalive));
 }
 
 void Receiver::set_self_id(uint8_t self_id) {
@@ -43,17 +43,19 @@ ssize_t Receiver::receive(Message &message) {
         // if epoll_wait returns 0, it means that the timeout expires
         // if epoll_wait returns -1, it means that an error occurs
         if (nfds == -1) {
-            std::string error_message = "epoll_wait error: nfds = " + std::to_string(nfds) + ", errno = " + std::to_string(errno);
+            std::string error_message = "epoll_wait error: nfds = " + std::to_string(nfds) +
+                                        ", errno = " + std::to_string(errno);
             perror(error_message.c_str());
             return 0;
         }
 
         // if epoll_wait returns a positive number, it means that the socket is readable
-        ssize_t size = recv(socketfd_, reinterpret_cast<void *>(buffer_.data()), MAX_BUFFER_SIZE, 0);
+        ssize_t size = recv(sockfd_, reinterpret_cast<void *>(buffer_.data()), MAX_BUFFER_SIZE, 0);
         // if recv returns -1, it means that an error occurs
         // if recv returns 0, it means that the peer has closed the connection
         if (size == ssize_t(-1) || size == 0) {
-            std::string error_message = "recv error: size = " + std::to_string(size) + ", errno = " + std::to_string(errno);
+            std::string error_message = "recv error: size = " + std::to_string(size) +
+                                        ", errno = " + std::to_string(errno);
             perror(error_message.c_str());
             return 0;
         }

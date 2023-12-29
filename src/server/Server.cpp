@@ -8,18 +8,18 @@
 ClientInfo::ClientInfo(
     std::string name,
     sockaddr_in addr,
-    int socketfd,
+    int sockfd,
     uint8_t id,
     Sender *sender,
     Receiver *receiver
-) : socketfd_(socketfd), name_(name), addr_(addr), client_id_(id) {
+) : sockfd_(sockfd), name_(name), addr_(addr), client_id_(id) {
     sender_ = std::unique_ptr<Sender>(sender);
     receiver_ = std::unique_ptr<Receiver>(receiver);
 }
 
 ClientInfo::~ClientInfo() {
     // Close the socket.
-    close(socketfd_);
+    close(sockfd_);
 }
 
 std::string ClientInfo::get_name() {
@@ -49,8 +49,8 @@ Server::Server(
     server_addr_.sin_addr.s_addr = addr;
 
     // Create a socket.
-    int socketfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (socketfd < 0) {
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
         std::string error_msg = "Server Init failed: failed to create a socket. errno: " +
                                 std::to_string(errno) + " " + strerror(errno);
         throw std::runtime_error(error_msg);
@@ -58,26 +58,26 @@ Server::Server(
 
     // Set the socket to be reusable.
     int opt = 1;
-    if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-        close(socketfd);
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        close(sockfd);
         std::string error_msg = "Server Init failed: failed to set the socket to be reusable. errno: " +
                                 std::to_string(errno) + " " + strerror(errno);
         throw std::runtime_error(error_msg);
     }
 
     // Bind the socket to the server address and port.
-    if (bind(socketfd, cast_sockaddr_in(server_addr_), sizeof(server_addr_)) < 0) {
-        close(socketfd);
+    if (bind(sockfd, cast_sockaddr_in(server_addr_), sizeof(server_addr_)) < 0) {
+        close(sockfd);
         std::string error_msg = "Server Init failed: failed to bind the socket to the server address and port. errno: " +
                                 std::to_string(errno) + " " + strerror(errno);
         throw std::runtime_error(error_msg);
     }
 
     // Listen for connections for maximum MAX_CLIENT_NUM clients.
-    listen(socketfd, MAX_CLIENT_NUM);
+    listen(sockfd, MAX_CLIENT_NUM);
 
     // Save the socket.
-    socketfd_ = socketfd;
+    sockfd_ = sockfd;
 
     // Create the lists.
     clientinfo_list_ = std::unique_ptr<std::map<uint8_t, std::unique_ptr<ClientInfo> > >(
@@ -115,7 +115,7 @@ Server::~Server() {
     join_threads();
 
     // Close the socket.
-    close(socketfd_);
+    close(sockfd_);
 
     // Output the remaining messages.
     output_message();
@@ -125,15 +125,15 @@ uint8_t Server::wait_for_client() {
     // Accept a connection for client.
     sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
-    int client_socketfd = accept(socketfd_, cast_sockaddr_in(client_addr), &client_addr_len);
+    int client_sockfd = accept(sockfd_, cast_sockaddr_in(client_addr), &client_addr_len);
     if (!running_) {
         // if the server is not running, close the socket and return.
-        if (client_socketfd >= 0) {
-            close(client_socketfd);
+        if (client_sockfd >= 0) {
+            close(client_sockfd);
         }
         return 0;
     }
-    if (client_socketfd < 0) {
+    if (client_sockfd < 0) {
         std::string error_msg = "Server Wait For Client failed: failed to accept a connection. errno: " +
                                 std::to_string(errno) + " " + strerror(errno);
         throw std::runtime_error(error_msg);
@@ -141,19 +141,19 @@ uint8_t Server::wait_for_client() {
 
     // Receive a CONNECT REQUEST.
     Message request(false);
-    Receiver *receiver = new Receiver(client_socketfd, SERVER_ID);
-    Sender *sender = new Sender(client_socketfd, SERVER_ID);
+    Receiver *receiver = new Receiver(client_sockfd, SERVER_ID);
+    Sender *sender = new Sender(client_sockfd, SERVER_ID);
     receiver->receive(request);
     // Check if the message is a valid CONNECT REQUEST.
     if (request.get_type() != MessageType::CONNECT ||
         request.get_receiver_id() != SERVER_ID) {
-        close(client_socketfd);
+        close(client_sockfd);
         throw std::runtime_error("Server Wait For Client failed: invalid connection request.");
     }
 
     // Get the name of the client.
     if (request.get_data().size() != 1) {
-        close(client_socketfd);
+        close(client_sockfd);
         throw std::runtime_error("Server Wait For Client failed: invalid connection request.");
     }
     std::string client_name = request.get_data()[0];
@@ -165,14 +165,14 @@ uint8_t Server::wait_for_client() {
         id++;
     }
     if (id == 0) {
-        close(client_socketfd);
+        close(client_sockfd);
         throw std::runtime_error("Server Wait For Client failed: no free client id.");
     }
     // Create a client info.
     std::unique_ptr<ClientInfo> client_info = std::make_unique<ClientInfo>(
         client_name,
         client_addr,
-        client_socketfd,
+        client_sockfd,
         id,
         sender,
         receiver
@@ -357,7 +357,7 @@ void Server::run() {
 void Server::stop() {
     output_queue_->push("[INFO] Stopping the server...");
     running_ = false;
-    shutdown(socketfd_, SHUT_RDWR);
+    shutdown(sockfd_, SHUT_RDWR);
 }
 
 bool Server::output_message() {

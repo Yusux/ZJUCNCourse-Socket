@@ -10,7 +10,7 @@
 class Receiver {
 private:
     std::mutex mutex_;
-    int socketfd_;
+    int sockfd_;
     int epollfd_;
     std::vector<epoll_event> events_;
     uint8_t self_id_;

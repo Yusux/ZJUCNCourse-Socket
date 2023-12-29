@@ -17,7 +17,7 @@
 
 class Client {
 private:
-    int socketfd_;
+    int sockfd_;
     const std::string name_;
     sockaddr_in server_addr_;
     uint8_t self_id_;
