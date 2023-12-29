@@ -4,6 +4,39 @@
 
 This is a simple socket programming project for the course Computer Network. The project has implemented a simple socket server and client, which can be used to send messages between clients by relaying on the server using Non-blocking socket receiver and epoll.
 
+The directory structure is as follows:
+
+``` text
+zjucn-socket/
+├── include
+│   ├── def.hpp
+│   ├── Map.hpp
+│   ├── Message.hpp
+│   ├── Queue.hpp
+│   ├── Receiver.hpp
+│   └── Sender.hpp
+├── lib
+│   ├── Makefile
+│   ├── Messgae.cpp
+│   ├── Receiver.cpp
+│   └── Sender.cpp
+├── Makefile
+├── Readme.md
+└── src
+    ├── client
+    │   ├── Client.cpp
+    │   ├── main.cpp
+    │   └── Makefile
+    ├── include
+    │   ├── Client.hpp
+    │   └── Server.hpp
+    ├── Makefile
+    └── server
+        ├── main.cpp
+        ├── Makefile
+        └── Server.cpp
+```
+
 ## Usage
 
 This project is developed and tested on Arch Linux (6.6.2-arch1-1) and Debian 12. MacOS and Windows are not supported since `epoll` is not supported on these platforms.
