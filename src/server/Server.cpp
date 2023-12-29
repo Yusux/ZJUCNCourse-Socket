@@ -369,7 +369,7 @@ void Server::receive_from_client(uint8_t client_id) {
         "(ID: " + std::to_string(client_id) + ") disconnected."
     );
     // Remove the client.
-    clear_message_status_map(client_id);
+    clear_message_status_map(client_id, clientinfo_list_lock);
     clientinfo_list_->erase(client_id, clientinfo_list_lock);
 }
 
@@ -412,9 +412,11 @@ bool Server::output_message() {
     return true;
 }
 
-bool Server::clear_message_status_map(uint16_t client_id) {
+bool Server::clear_message_status_map(
+    uint16_t client_id,
+    std::unique_lock<std::mutex> &clientinfo_list_lock
+) {
     std::unique_lock<std::mutex> lock(message_status_map_->get_mutex());
-    std::unique_lock<std::mutex> clientinfo_list_lock(clientinfo_list_->get_mutex());
     for (auto it = message_status_map_->begin(lock); it != message_status_map_->end(lock);) {
         if (it->second.sender_id == client_id) {
             // Erase the message.
@@ -442,5 +444,9 @@ bool Server::clear_message_status_map(uint16_t client_id) {
             it++;
         }
     }
+    output_queue_->push(
+        "[DEBUG] Cleared message_status_map_ with client id: " +
+        std::to_string(client_id)
+    );
     return true;
 }

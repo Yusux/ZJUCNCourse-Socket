@@ -66,8 +66,10 @@ public:
      * @param msg_string: The message to send.
      * @return: The message id and the number of bytes sent.
      */
-    send_res_t send_request_send(uint8_t receiver_id,
-                                                       std::string msg_string);
+    send_res_t send_request_send(
+        uint8_t receiver_id,
+        std::string msg_string
+    );
 
     // FOR SERVER AND CLIENTS
     /*
@@ -77,9 +79,11 @@ public:
      * @param data: The data to send with the acknowledgement.
      * @return: The message id and the number of bytes sent.
      */
-    send_res_t send_acknowledge(uint16_t pakage_id,
-                                uint8_t receiver_id,
-                                const data_t &data = {});
+    send_res_t send_acknowledge(
+        uint16_t pakage_id,
+        uint8_t receiver_id,
+        const data_t &data = {}
+    );
 
     /*
      * Send a FORWARD packet.

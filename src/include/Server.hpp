@@ -27,12 +27,14 @@ private:
 
 
 public:
-    ClientInfo(std::string name,
-               sockaddr_in addr,
-               int sockfd,
-               uint8_t id,
-               Sender *sender,
-               Receiver *receiver);
+    ClientInfo(
+        std::string name,
+        sockaddr_in addr,
+        int sockfd,
+        uint8_t id,
+        Sender *sender,
+        Receiver *receiver
+    );
     ~ClientInfo();
 
     std::string get_name();
@@ -83,9 +85,13 @@ private:
      * Clear messages to process in the message_status_map_
      * with the given client id.
      * @param client_id The id of the client.
+     * @param lock The unique_lock of the clientinfo_list_.
      * @return Whether the clearing is successful.
      */
-    bool clear_message_status_map(uint16_t client_id);
+    bool clear_message_status_map(
+        uint16_t client_id,
+        std::unique_lock<std::mutex> &clientinfo_list_lock
+    );
 
 public:
     /*

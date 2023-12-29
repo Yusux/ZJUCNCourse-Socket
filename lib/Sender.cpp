@@ -54,8 +54,10 @@ send_res_t Sender::send_request_client_list() {
     return std::make_pair(message.get_pakage_id(), size);
 }
 
-send_res_t Sender::send_request_send(uint8_t receiver_id,
-                                     std::string msg_string) {
+send_res_t Sender::send_request_send(
+    uint8_t receiver_id,
+    std::string msg_string
+) {
     std::lock_guard<std::mutex> lock(mutex_);
     data_t data;
     data.push_back(msg_string);
@@ -66,9 +68,11 @@ send_res_t Sender::send_request_send(uint8_t receiver_id,
 }
 
 // FOR SERVER AND CLIENTS
-send_res_t Sender::send_acknowledge(uint16_t pakage_id,
-                                    uint8_t receiver_id,
-                                    const data_t &data) {
+send_res_t Sender::send_acknowledge(
+    uint16_t pakage_id,
+    uint8_t receiver_id,
+    const data_t &data
+) {
     std::lock_guard<std::mutex> lock(mutex_);
     Message message(MessageType::ACK, self_id_, receiver_id, data);
     message.set_pakage_id(pakage_id);

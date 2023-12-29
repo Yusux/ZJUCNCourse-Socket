@@ -1,10 +1,14 @@
 #include "Message.hpp"
 #include <stdexcept>
 
-uint16_t Message::pakage_id_counter_ = 0;
+std::atomic_uint16_t Message::pakage_id_counter_ = 0;
 
 Message::Message(bool increase_pakage_id) {
-    pakage_id_ = increase_pakage_id ? pakage_id_counter_++ : pakage_id_counter_;
+    if (increase_pakage_id) {
+        pakage_id_ = pakage_id_counter_++;
+    } else {
+        pakage_id_ = pakage_id_counter_;
+    }
     type_ = MessageType::BLANK;
     sender_id_ = 0;
     receiver_id_ = 0;
@@ -41,13 +45,19 @@ Message::Message(const void *buffer, ssize_t size) {
     }
 }
 
-Message::Message(MessageType type,
-                 uint8_t sender_id,
-                 uint8_t receiver_id,
-                 const data_t &data,
-                 bool increase_pakage_id) {
+Message::Message(
+    MessageType type,
+    uint8_t sender_id,
+    uint8_t receiver_id,
+    const data_t &data,
+    bool increase_pakage_id
+) {
     // overflow is fine, it's unsigned
-    pakage_id_ = increase_pakage_id ? pakage_id_counter_++ : pakage_id_counter_;
+    if (increase_pakage_id) {
+        pakage_id_ = pakage_id_counter_++;
+    } else {
+        pakage_id_ = pakage_id_counter_;
+    }
     type_ = type;
     sender_id_ = sender_id;
     receiver_id_ = receiver_id;

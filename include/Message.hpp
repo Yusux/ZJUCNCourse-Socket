@@ -4,6 +4,7 @@
 #include "def.hpp"
 #include <vector>
 #include <string>
+#include <atomic>
 
 enum class MessageType {
     BLANK,
@@ -19,7 +20,7 @@ enum class MessageType {
 
 class Message {
 private:
-    static uint16_t pakage_id_counter_;
+    static std::atomic_uint16_t pakage_id_counter_;
     uint16_t pakage_id_;
     MessageType type_;
     uint8_t sender_id_;
@@ -46,11 +47,13 @@ public:
      * @param data: The data of the message.
      * @param increase_pakage_id: Whether to increase the pakage id.
      */
-    explicit Message(MessageType type,
-                     uint8_t sender_id,
-                     uint8_t receiver_id,
-                     const data_t &data = {},
-                     bool increase_pakage_id = true);
+    explicit Message(
+        MessageType type,
+        uint8_t sender_id,
+        uint8_t receiver_id,
+        const data_t &data = {},
+        bool increase_pakage_id = true
+    );
     /*
      * Copy constructor for Message.
      * @param other: The Message to copy.
@@ -105,7 +108,11 @@ public:
     Message& operator=(const Message& other);
 };
 
-inline bool check_afk(const Message &message, const send_res_t &result, uint8_t sender_id = SERVER_ID) {
+inline bool check_afk(
+    const Message &message,
+    const send_res_t &result,
+    uint8_t sender_id = SERVER_ID
+) {
     return message.get_type() == MessageType::ACK  &&
            message.get_pakage_id() == result.first &&
            message.get_sender_id() == sender_id;
