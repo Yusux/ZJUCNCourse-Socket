@@ -4,6 +4,17 @@
 #include <map>
 #include <mutex>
 
+inline void check_lock(std::unique_lock<std::mutex> &lock, std::mutex *mutex2) {
+    // Check if lock is locked.
+    if (!lock.owns_lock()) {
+        throw std::logic_error("Map: lock must be locked");
+    }
+    // Check if lock is locked by mutex2.
+    if (lock.mutex() != mutex2) {
+        throw std::logic_error("Map: mutexes must be the same");
+    }
+}
+
 template <typename K, typename V, typename Compare = std::less<K> >
 class Map {
 private:
@@ -14,45 +25,62 @@ public:
     Map() {}
     ~Map() {}
 
-    auto insert_or_assign(const K &key, const V &value) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return map_.insert_or_assign(key, value);
+    std::mutex &get_mutex() {
+        return mutex_;
     }
 
-    auto erase(const K &key) {
+    // Read-only operations
+    bool empty() {
         std::lock_guard<std::mutex> lock(mutex_);
+        return map_.empty();
+    }
+
+    // Write operations
+    auto insert_or_assign(const K &key, V value, std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
+        return map_.insert_or_assign(key, std::move(value));
+    }
+
+    auto erase(const K &key, std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
         return map_.erase(key);
     }
 
-    V &at(const K &key) {
-        std::lock_guard<std::mutex> lock(mutex_);
+    auto erase(typename std::map<K, V, Compare>::iterator it, std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
+        return map_.erase(it);
+    }
+
+    V &at(const K &key, std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
         return map_.at(key);
     }
 
-    auto find(const K &key) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return map_.find(key);
-    }
-
-    auto begin() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return map_.begin();
-    }
-
-    auto end() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return map_.end();
-    }
-
-    bool clear() {
-        std::lock_guard<std::mutex> lock(mutex_);
+    bool clear(std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
         map_.clear();
         return true;
     }
 
-    bool empty() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return map_.empty();
+    // Iterator operations
+    auto find(const K &key, std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
+        return map_.find(key);
+    }
+
+    auto begin(std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
+        return map_.begin();
+    }
+
+    auto end(std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
+        return map_.end();
+    }
+
+    bool check_exist(const K &key, std::unique_lock<std::mutex> &lock) {
+        check_lock(lock, &mutex_);
+        return map_.find(key) != map_.end();
     }
 };
 

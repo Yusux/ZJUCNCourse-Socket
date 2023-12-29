@@ -1,9 +1,10 @@
 #include "Receiver.hpp"
 #include <sys/socket.h>
+#include <netinet/tcp.h>
 #include <fcntl.h>
 
-Receiver::Receiver(int socket, uint8_t self_id) {
-    sockfd_ = socket;
+Receiver::Receiver(int sockfd, uint8_t self_id) {
+    sockfd_ = sockfd;
     self_id_ = self_id;
     buffer_.resize(MAX_BUFFER_SIZE);
 
@@ -20,12 +21,15 @@ Receiver::Receiver(int socket, uint8_t self_id) {
     int newSocketFlag = oldSocketFlag | O_NONBLOCK;
     fcntl(sockfd_, F_SETFL,  newSocketFlag);
 
-    // // set keepalive
-    // int keepalive = 1;
-    // int keepidle = 60;
-    // int keepinterval = 5;
-    // int keepcount = 3;
-    // setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive, sizeof(keepalive));
+    // set keepalive
+    int keepalive = 1;
+    int keepidle = 60;
+    int keepinterval = 5;
+    int keepcount = 3;
+    setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive, sizeof(keepalive));
+    setsockopt(sockfd_, SOL_TCP, TCP_KEEPIDLE, (void *)&keepidle, sizeof(keepidle));
+    setsockopt(sockfd_, SOL_TCP, TCP_KEEPINTVL, (void *)&keepinterval, sizeof(keepinterval));
+    setsockopt(sockfd_, SOL_TCP, TCP_KEEPCNT, (void *)&keepcount, sizeof(keepcount));
 }
 
 void Receiver::set_self_id(uint8_t self_id) {

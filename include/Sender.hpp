@@ -15,10 +15,10 @@ private:
 public:
     /*
      * Constructor.
-     * @param socket: The socket to send messages on.
+     * @param sockfd: The sockfd to send messages on.
      * @param self_id: The id of the sender.
      */
-    explicit Sender(int socket, uint8_t self_id);
+    explicit Sender(int sockfd, uint8_t self_id);
     ~Sender() {}
 
     /*

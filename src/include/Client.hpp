@@ -39,6 +39,14 @@ private:
      */
     void join_threads();
 
+    /*
+     * Check whether the message exists.
+     * @param result The result of sending the message.
+     * @param lock The unique_lock of the mutex.
+     * @return Whether the message exists.
+     */
+    bool check_message_exist(send_res_t result, std::unique_lock<std::mutex> &lock);
+
 public:
     /*
      * Connect to the server.

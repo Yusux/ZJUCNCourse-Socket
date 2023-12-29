@@ -2,8 +2,8 @@
 #include <sys/socket.h>
 
 // FOR CLIENTS ONLY
-Sender::Sender(int socket, uint8_t self_id) {
-    sockfd_ = socket;
+Sender::Sender(int sockfd, uint8_t self_id) {
+    sockfd_ = sockfd;
     self_id_ = self_id;
     buffer_.resize(MAX_BUFFER_SIZE);
 }

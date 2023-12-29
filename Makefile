@@ -9,7 +9,6 @@ CFLAG=${CF} ${INCLUDE}
 all:
 	${MAKE} -C lib all
 	${MAKE} -C src all
-	$(shell chmod +x ./*.out)
 	@echo -e '\n'Build Finished OK
 
 clean:

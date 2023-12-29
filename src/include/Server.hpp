@@ -55,9 +55,9 @@ private:
     sockaddr_in server_addr_;
     uint8_t self_id_;
     bool running_;
-    std::unique_ptr<std::map<uint8_t, std::unique_ptr<ClientInfo> > > clientinfo_list_;
-    std::unique_ptr<std::map<uint8_t, std::unique_ptr<std::thread> > > client_thread_list_;
-    // Use Map with mutex tp protect the message_status_map_.
+    // Use Map/Queue with mutex for thread safety.
+    std::unique_ptr<Map<uint8_t, std::unique_ptr<ClientInfo> > > clientinfo_list_;
+    std::unique_ptr<Map<uint8_t, std::unique_ptr<std::thread> > > client_thread_list_;
     std::unique_ptr<Map<uint16_t, PacketInfo> > message_status_map_;
     std::unique_ptr<Queue<std::string> > output_queue_;
 
@@ -78,6 +78,14 @@ private:
      * Join the threads.
      */
     void join_threads();
+
+    /*
+     * Clear messages to process in the message_status_map_
+     * with the given client id.
+     * @param client_id The id of the client.
+     * @return Whether the clearing is successful.
+     */
+    bool clear_message_status_map(uint16_t client_id);
 
 public:
     /*

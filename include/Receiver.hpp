@@ -23,10 +23,10 @@ private:
 public:
     /*
      * Constructor.
-     * @param socket: The socket to receive messages on.
+     * @param sockfd: The sockfd to receive messages on.
      * @param self_id: The id of the receiver.
      */
-    explicit Receiver(int socket, uint8_t self_id);
+    explicit Receiver(int sockfd, uint8_t self_id);
     ~Receiver() {}
 
     /*

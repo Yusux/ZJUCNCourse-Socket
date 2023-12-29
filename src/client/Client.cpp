@@ -98,7 +98,8 @@ bool Client::connect_to_server(in_addr_t addr, int port) {
         receiver_->set_self_id(self_id_);
         // Start the threads.
         join_threads();
-        message_type_map_->clear();
+        std::unique_lock<std::mutex> lock(message_type_map_->get_mutex());
+        message_type_map_->clear(lock);
         receive_thread_ = std::move(
             std::make_unique<std::thread>(
                 std::thread(
@@ -130,10 +131,9 @@ bool Client::disconnect_from_server() {
 
     // Send a Disconnect Request.
     send_res_t result = sender_->send_disconnect_request();
-    if (message_type_map_->find(result.first) != message_type_map_->end()) {
-        throw std::runtime_error("Disconnect Request failed: pakage id already exists.");
-    }
-    message_type_map_->insert_or_assign(result.first, MessageType::DISCONNECT);
+    std::unique_lock<std::mutex> lock(message_type_map_->get_mutex());
+    check_message_exist(result, lock);
+    message_type_map_->insert_or_assign(result.first, MessageType::DISCONNECT, lock);
 
     return true;
 }
@@ -146,10 +146,9 @@ bool Client::get_time() {
 
     // Send a Request Time.
     send_res_t result = sender_->send_request_time();
-    if (message_type_map_->find(result.first) != message_type_map_->end()) {
-        throw std::runtime_error("Request Time failed: pakage id already exists.");
-    }
-    message_type_map_->insert_or_assign(result.first, MessageType::REQTIME);
+    std::unique_lock<std::mutex> lock(message_type_map_->get_mutex());
+    check_message_exist(result, lock);
+    message_type_map_->insert_or_assign(result.first, MessageType::REQTIME, lock);
 
     return true;
 }
@@ -162,10 +161,9 @@ bool Client::get_name() {
 
     // Send a Request HOST.
     send_res_t result = sender_->send_request_host();
-    if (message_type_map_->find(result.first) != message_type_map_->end()) {
-        throw std::runtime_error("Request HOST failed: pakage id already exists.");
-    }
-    message_type_map_->insert_or_assign(result.first, MessageType::REQHOST);
+    std::unique_lock<std::mutex> lock(message_type_map_->get_mutex());
+    check_message_exist(result, lock);
+    message_type_map_->insert_or_assign(result.first, MessageType::REQHOST, lock);
 
     return true;
 }
@@ -178,10 +176,9 @@ bool Client::get_client_list() {
 
     // Send a Request Client List.
     send_res_t result = sender_->send_request_client_list();
-    if (message_type_map_->find(result.first) != message_type_map_->end()) {
-        throw std::runtime_error("Request Client List failed: pakage id already exists.");
-    }
-    message_type_map_->insert_or_assign(result.first, MessageType::REQCLILIST);
+    std::unique_lock<std::mutex> lock(message_type_map_->get_mutex());
+    check_message_exist(result, lock);
+    message_type_map_->insert_or_assign(result.first, MessageType::REQCLILIST, lock);
 
     return true;
 }
@@ -196,10 +193,9 @@ bool Client::send_message(uint8_t receiver_id, std::string content) {
     // Send a Request Send.
     output_queue_->push("[DEBUG] Send message No." + std::to_string(++cnt));
     send_res_t result = sender_->send_request_send(receiver_id, content);
-    if (message_type_map_->find(result.first) != message_type_map_->end()) {
-        throw std::runtime_error("Request Send failed: pakage id already exists.");
-    }
-    message_type_map_->insert_or_assign(result.first, MessageType::REQSEND);
+    std::unique_lock<std::mutex> lock(message_type_map_->get_mutex());
+    check_message_exist(result, lock);
+    message_type_map_->insert_or_assign(result.first, MessageType::REQSEND, lock);
 
     return true;
 }
@@ -236,16 +232,17 @@ void Client::receive_message() {
             // Send an ACK.
             sender_->send_acknowledge(message.get_pakage_id(), message.get_sender_id());
         } else if (message.get_type() == MessageType::ACK) {
+            std::unique_lock<std::mutex> lock(message_type_map_->get_mutex());
             // Check if the pakage id exists.
-            if (message_type_map_->find(message.get_pakage_id()) == message_type_map_->end()) {
+            if (!message_type_map_->check_exist(message.get_pakage_id(), lock)) {
                 // ignore the message.
                 continue;
             }
 
             // Get the type of the message.
-            MessageType type = message_type_map_->at(message.get_pakage_id());
+            MessageType type = message_type_map_->at(message.get_pakage_id(), lock);
             // Remove the pakage id.
-            message_type_map_->erase(message.get_pakage_id());
+            message_type_map_->erase(message.get_pakage_id(), lock);
             // Check if the sender id is correct.
             if (message.get_sender_id() != SERVER_ID) {
                 output_queue_->push("[ERR] ACK failed: wrong sender id.");
@@ -356,6 +353,13 @@ bool Client::output_message() {
     while (!output_queue_->empty()) {
         std::string output = output_queue_->pop();
         std::cout << output << std::endl;
+    }
+    return true;
+}
+
+bool Client::check_message_exist(send_res_t result, std::unique_lock<std::mutex> &lock) {
+    if (message_type_map_->check_exist(result.first, lock)) {
+        throw std::runtime_error("Request failed: pakage id already exists.");
     }
     return true;
 }
