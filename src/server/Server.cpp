@@ -99,8 +99,13 @@ Server::~Server() {
     output_queue_->push("[INFO] Release the server.");
     // Close all the client connections.
     // Get shared_mutex for clientinfo_list_.
-    std::unique_lock<std::mutex> lock(clientinfo_list_->get_mutex());
-    for (auto it = clientinfo_list_->begin(lock); it != clientinfo_list_->end(lock); it++) {
+    std::unique_lock<std::mutex> clientinfo_list_lock(clientinfo_list_->get_mutex());
+    std::unique_lock<std::mutex> message_status_map_lock(message_status_map_->get_mutex());
+    for (
+        auto it = clientinfo_list_->begin(clientinfo_list_lock);
+        it != clientinfo_list_->end(clientinfo_list_lock);
+        it++
+    ) {
         // Send a DISCONNECT REQUEST.
         send_res_t result = it->second->get_sender()->send_disconnect_request(it->first);
         // Insert the message into the message_status_map_.
@@ -113,7 +118,7 @@ Server::~Server() {
                 it->first,
                 MessageType::DISCONNECT
             },
-            lock
+            message_status_map_lock
         );
     }
 
@@ -179,7 +184,7 @@ uint8_t Server::wait_for_client() {
 
     // Set socket to keepalive
     int keepalive = 1;
-    int keepidle = 60;
+    int keepidle = 10;
     int keepinterval = 5;
     int keepcount = 3;
     setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive, sizeof(keepalive));
@@ -279,6 +284,7 @@ void Server::receive_from_client(uint8_t client_id) {
                                                 ->send_forward(message);
             // Insert the message into the massage_type_map_.
             // Key is FWD's package id, value is the REQSEND's package info.
+            std::unique_lock<std::mutex> message_status_map_lock(message_status_map_->get_mutex());
             message_status_map_->insert_or_assign(
                 result.first,
                 PacketInfo{
@@ -287,18 +293,22 @@ void Server::receive_from_client(uint8_t client_id) {
                     message.get_receiver_id(),
                     MessageType::FWD
                 },
-                lock
+                message_status_map_lock
             );
         } else if (message.get_type() == MessageType::ACK) {
             // Check if the message is in the message_status_map_.
-            if (!message_status_map_->check_exist(message.get_pakage_id(), lock)) {
+            std::unique_lock<std::mutex> message_status_map_lock(message_status_map_->get_mutex());
+            if (!message_status_map_->check_exist(message.get_pakage_id(), message_status_map_lock)) {
                 // Not found, do nothing.
                 continue;
             }
 
             // Found, check if the original message is a DISCONNECT REQUEST.
-            PacketInfo packet_info = message_status_map_->at(message.get_pakage_id(), lock);
-            message_status_map_->erase(message.get_pakage_id(), lock);
+            PacketInfo packet_info = message_status_map_->at(
+                message.get_pakage_id(),
+                message_status_map_lock
+            );
+            message_status_map_->erase(message.get_pakage_id(), message_status_map_lock);
             if (packet_info.message_type == MessageType::DISCONNECT) {
                 // DISCONNECT REQUEST, close the thread.
                 break;
