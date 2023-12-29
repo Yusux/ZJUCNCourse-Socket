@@ -92,6 +92,12 @@ public:
      * @return: The message id and the number of bytes sent.
      */
     send_res_t send_forward(Message message);
+
+    /*
+     * Send a HEART BEAT packet.
+     * @param receiver_id: The id of the receiver.
+     */
+    void send_heart_beat(uint16_t receiver_id);
 };
 
 #endif

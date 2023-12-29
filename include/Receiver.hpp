@@ -12,6 +12,7 @@ private:
     std::mutex mutex_;
     int sockfd_;
     int epollfd_;
+    std::atomic_char lose_heart_beat_;
     std::vector<epoll_event> events_;
     uint8_t self_id_;
     std::vector<uint8_t> buffer_;
@@ -41,6 +42,12 @@ public:
      * @return: The number of bytes received.
      */
     ssize_t receive(Message &message);
+
+    // operations on lose_heart_beat_
+    void inc_lost_heart_beat();
+    void set_lost_heart_beat(uint8_t lost_heart_beat);
+    void reset_lost_heart_beat();
+    uint8_t get_lost_heart_beat();
 };
 
 #endif

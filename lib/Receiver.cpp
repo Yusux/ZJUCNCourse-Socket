@@ -19,6 +19,9 @@ Receiver::Receiver(int sockfd, uint8_t self_id) {
     int oldSocketFlag = fcntl(sockfd_, F_GETFL, 0);
     int newSocketFlag = oldSocketFlag | O_NONBLOCK;
     fcntl(sockfd_, F_SETFL,  newSocketFlag);
+
+    // initialize lose_heart_beat_
+    lose_heart_beat_ = 0;
 }
 
 void Receiver::set_self_id(uint8_t self_id) {
@@ -32,7 +35,11 @@ ssize_t Receiver::receive(Message &message) {
     if (message_queue_.empty()) {
         // use epoll_wait to wait for the socket to be readable
         int nfds;
-        while ((nfds = epoll_wait(epollfd_, events_.data(), MAX_EPOLL_EVENTS, TIMEOUT)) == 0);
+        while ((nfds = epoll_wait(epollfd_, events_.data(), MAX_EPOLL_EVENTS, TIMEOUT)) == 0) {
+            if (lose_heart_beat_ >= MAX_LOST_HEART_BEAT) {
+                return 0;
+            }
+        }
         // if epoll_wait returns 0, it means that the timeout expires
         // if epoll_wait returns -1, it means that an error occurs
         if (nfds == -1) {
@@ -74,4 +81,20 @@ ssize_t Receiver::receive(Message &message) {
     } else {
         return 0;
     }
+}
+
+void Receiver::inc_lost_heart_beat() {
+    lose_heart_beat_++;
+}
+
+void Receiver::set_lost_heart_beat(uint8_t lost_heart_beat) {
+    lose_heart_beat_ = lost_heart_beat;
+}
+
+void Receiver::reset_lost_heart_beat() {
+    lose_heart_beat_ = 0;
+}
+
+uint8_t Receiver::get_lost_heart_beat() {
+    return lose_heart_beat_;
 }

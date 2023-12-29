@@ -7,7 +7,7 @@
 #include <atomic>
 
 enum class MessageType {
-    BLANK,
+    HEARTBEAT,
     CONNECT,
     DISCONNECT,
     REQTIME,

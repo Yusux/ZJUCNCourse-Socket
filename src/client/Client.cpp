@@ -68,24 +68,25 @@ bool Client::connect_to_server(in_addr_t addr, int port) {
     server_addr_.sin_addr.s_addr = addr;
 
     // Create a socket.
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
+    sockfd_ = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd_ < 0) {
         std::string error_msg = "Connect Request failed: failed to create a socket. errno: " +
                                 std::to_string(errno) + " " + strerror(errno);
         throw std::runtime_error(error_msg);
     }
 
     // Connect to the server.
-    if (connect(sockfd, cast_sockaddr_in(server_addr_), sizeof(server_addr_)) < 0) {
-        close(sockfd);
+    if (connect(sockfd_, cast_sockaddr_in(server_addr_), sizeof(server_addr_)) < 0) {
+        close(sockfd_);
+        sockfd_ = -1;
         std::string error_msg = "Connect Request failed: failed to connect to the server. errno: " +
                                 std::to_string(errno) + " " + strerror(errno);
         throw std::runtime_error(error_msg);
     }
 
     // Create a sender and a receiver.
-    sender_ = std::make_unique<Sender>(sockfd, 0);
-    receiver_ = std::make_unique<Receiver>(sockfd, 0);
+    sender_ = std::make_unique<Sender>(sockfd_, 0);
+    receiver_ = std::make_unique<Receiver>(sockfd_, 0);
 
     // Send a Connect Request.
     send_res_t result = sender_->send_connect_request(name_);
@@ -114,12 +115,11 @@ bool Client::connect_to_server(in_addr_t addr, int port) {
         );
     } else {
         // Error in connection.
-        close(sockfd);
+        close(sockfd_);
+        sockfd_ = -1;
         throw std::runtime_error("Connect Request failed: error in connection.");
     }
 
-    // Successfully connected to the server.
-    sockfd_ = sockfd;
     return true;
 }
 
@@ -203,16 +203,25 @@ bool Client::send_message(uint8_t receiver_id, std::string content) {
 void Client::receive_message() {
     // Check if connected to the server.
     if (sockfd_ < 0) {
-        throw std::runtime_error("Disconnect Request failed: not connected to the server.");
+        throw std::runtime_error("Receive failed: not connected to the server.");
     }
 
     Message message;
     int cnt = 0;
     while (receiver_->receive(message)) {
-        output_queue_->push("[DEBUG] Receive message No." +
-                            std::to_string(++cnt) +
-                            " : " +
-                            message.to_string());
+        // If heartbeat, not to output.
+        if (message.get_type() != MessageType::HEARTBEAT) {
+            output_queue_->push("[DEBUG] Receive message No." +
+                                std::to_string(++cnt) +
+                                " : " +
+                                message.to_string());
+        }
+        // Check if message sent to self.
+        if (!message.get_receiver_id() == self_id_) {
+            // ignore the message.
+            continue;
+        }
+
         // Check the type of the message
         if (message.get_type() == MessageType::DISCONNECT) {
             // Send an ACK.
@@ -326,6 +335,9 @@ void Client::receive_message() {
             } else {
                 output_queue_->push("[ERR] Unknown message type.");
             }
+        } else if (message.get_type() == MessageType::HEARTBEAT) {
+            // Response to a heartbeat.
+            sender_->send_heart_beat(message.get_sender_id());
         } else {
             output_queue_->push("[ERR] Unknown message type.");
         }

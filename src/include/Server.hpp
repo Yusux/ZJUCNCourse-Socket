@@ -56,10 +56,11 @@ private:
     const std::string name_;
     sockaddr_in server_addr_;
     uint8_t self_id_;
-    bool running_;
+    std::atomic_bool running_;
     // Use Map/Queue with mutex for thread safety.
     std::unique_ptr<Map<uint8_t, std::unique_ptr<ClientInfo> > > clientinfo_list_;
-    std::unique_ptr<Map<uint8_t, std::unique_ptr<std::thread> > > client_thread_list_;
+    std::unique_ptr<Map<uint8_t, std::unique_ptr<std::thread> > > client_recv_list_;
+    std::unique_ptr<Map<uint8_t, std::unique_ptr<std::thread> > > client_monitor_list_;
     std::unique_ptr<Map<uint16_t, PacketInfo> > message_status_map_;
     std::unique_ptr<Queue<std::string> > output_queue_;
 
@@ -75,6 +76,12 @@ private:
      * @param message The message to be received.
      */
     void receive_from_client(uint8_t client_id);
+
+    /*
+     * Keep monitoring the client.
+     * @param client_id The id of the client.
+     */
+    void monitor_client(uint8_t client_id);
 
     /*
      * Join the threads.

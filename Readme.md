@@ -21,6 +21,8 @@ This project is developed and tested on Arch Linux (6.6.2-arch1-1) and Debian 12
 ./server [host] [address] [port]    # Need to provide in sequence
 ```
 
+> Graceful exit has been implemented in the server. Since we need to wait for monitor thread to exit, the server will wait for at most 10-20 seconds to exit.
+
 ### Client
 
 ``` bash
@@ -74,8 +76,10 @@ The packet is defined as follows:
 
 Package Type is defined as follows:
 
-- BLANK(0): The packet is used to fill the blank.
-  - NOT USED.
+- HEARTBEAT(0): The packet is used to fill the HEARTBEAT.
+  - packge index is 0.
+  - Sender ID is self ID.
+  - Receiver ID is target host ID.
 - CONNECT(1): The packet is used to connect to the socket server.
   - Sender ID is initialized to 0.
   - Receiver ID is initialized to Server ID (0).

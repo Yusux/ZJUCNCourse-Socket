@@ -84,7 +84,10 @@ Server::Server(
     clientinfo_list_ = std::unique_ptr<Map<uint8_t, std::unique_ptr<ClientInfo> > >(
         new Map<uint8_t, std::unique_ptr<ClientInfo> >()
     );
-    client_thread_list_ = std::unique_ptr<Map<uint8_t, std::unique_ptr<std::thread> > >(
+    client_recv_list_ = std::unique_ptr<Map<uint8_t, std::unique_ptr<std::thread> > >(
+        new Map<uint8_t, std::unique_ptr<std::thread> >()
+    );
+    client_monitor_list_ = std::unique_ptr<Map<uint8_t, std::unique_ptr<std::thread> > >(
         new Map<uint8_t, std::unique_ptr<std::thread> >()
     );
     message_status_map_ = std::unique_ptr<Map<uint16_t, PacketInfo> >(
@@ -182,16 +185,6 @@ uint8_t Server::wait_for_client() {
         throw std::runtime_error("Server Wait For Client failed: no free client id.");
     }
 
-    // Set socket to keepalive
-    int keepalive = 1;
-    int keepidle = 10;
-    int keepinterval = 5;
-    int keepcount = 3;
-    setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive, sizeof(keepalive));
-    setsockopt(sockfd_, SOL_TCP, TCP_KEEPIDLE, (void *)&keepidle, sizeof(keepidle));
-    setsockopt(sockfd_, SOL_TCP, TCP_KEEPINTVL, (void *)&keepinterval, sizeof(keepinterval));
-    setsockopt(sockfd_, SOL_TCP, TCP_KEEPCNT, (void *)&keepcount, sizeof(keepcount));
-
     // Create a client info.
     std::unique_ptr<ClientInfo> client_info = std::make_unique<ClientInfo>(
         client_name,
@@ -202,18 +195,26 @@ uint8_t Server::wait_for_client() {
         receiver
     );
     clientinfo_list_->insert_or_assign(id, std::move(client_info), clientinfo_list_lock);
-    // Create a thread for the client.
-    std::unique_ptr<std::thread> client_thread = std::make_unique<std::thread>(
+    // Create threads for the client.
+    std::unique_ptr<std::thread> recv_thread = std::make_unique<std::thread>(
         &Server::receive_from_client,
         this,
         id
     );
-    std::unique_lock<std::mutex> client_thread_list_lock(client_thread_list_->get_mutex());
-    if (client_thread_list_->check_exist(id, client_thread_list_lock)) {
-        client_thread_list_->at(id, client_thread_list_lock)->join();
-        client_thread_list_->at(id, client_thread_list_lock).release();
+    std::unique_lock<std::mutex> client_recv_list_lock(client_recv_list_->get_mutex());
+    if (client_recv_list_->check_exist(id, client_recv_list_lock)) {
+        client_recv_list_->at(id, client_recv_list_lock)->join();
+        client_recv_list_->at(id, client_recv_list_lock).release();
     }
-    client_thread_list_->insert_or_assign(id, std::move(client_thread), client_thread_list_lock);
+    client_recv_list_->insert_or_assign(id, std::move(recv_thread), client_recv_list_lock);
+
+    std::unique_ptr<std::thread> monitor_thread = std::make_unique<std::thread>(
+        &Server::monitor_client,
+        this,
+        id
+    );
+    std::unique_lock<std::mutex> client_monitor_list_lock(client_monitor_list_->get_mutex());
+    client_monitor_list_->insert_or_assign(id, std::move(monitor_thread), client_monitor_list_lock);
 
     // Send a CONNECT RESPONSE.
     clientinfo_list_->at(id, clientinfo_list_lock)
@@ -230,8 +231,8 @@ void Server::receive_from_client(uint8_t client_id) {
         throw std::runtime_error("Server Receive From Client failed: invalid client id.");
     }
 
-    Receiver *receiver = clientinfo_list_->at(client_id, clientinfo_list_lock)->get_receiver();
     Sender *sender = clientinfo_list_->at(client_id, clientinfo_list_lock)->get_sender();
+    Receiver *receiver = clientinfo_list_->at(client_id, clientinfo_list_lock)->get_receiver();
 
     Message message;
     output_queue_->push(
@@ -260,14 +261,17 @@ void Server::receive_from_client(uint8_t client_id) {
             // Not from the client, do nothing.
             continue;
         }
+        // Reset the lost_heart_beat.
+        receiver->reset_lost_heart_beat();
+        // If heart beat, do nothing.
+        if (message.get_type() == MessageType::HEARTBEAT) {
+            continue;
+        }
+
         // Print the message.
         output_queue_->push("[DEBUG] Received message: " + message.to_string());
         // check the type of the message
-        if (message.get_type () == MessageType::DISCONNECT) {
-            // Send an ACK.
-            sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id());
-            break;
-        } else if (message.get_type() == MessageType::REQSEND) {
+        if (message.get_type() == MessageType::REQSEND) {
             // Try to find the receiver.
             if (!clientinfo_list_->check_exist(message.get_receiver_id(), lock)) {
                 // Not found.
@@ -368,6 +372,15 @@ void Server::receive_from_client(uint8_t client_id) {
             data_t data;
             data.push_back(name_);
             sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id(), data);
+        } else if (message.get_type () == MessageType::DISCONNECT) {
+            // Send an ACK.
+            sender->send_acknowledge(message.get_pakage_id(), message.get_sender_id());
+            break;
+        } else if (message.get_type() == MessageType::HEARTBEAT) {
+            // Do nothing.
+        } else {
+            output_queue_->push("[ERR] Invalid message type.");
+            continue;
         }
         output_queue_->push("[DEBUG] Done message: " + message.to_string());
         output_queue_->push("[INFO] Waiting for message...");
@@ -378,14 +391,47 @@ void Server::receive_from_client(uint8_t client_id) {
         "[INFO] " + clientinfo_list_->at(client_id, clientinfo_list_lock)->get_name() +
         "(ID: " + std::to_string(client_id) + ") disconnected."
     );
+    // join the monitor thread.
+    receiver->set_lost_heart_beat(MAX_LOST_HEART_BEAT);
+    std::unique_lock<std::mutex> client_monitor_list_lock(client_monitor_list_->get_mutex());
+    if (client_monitor_list_->check_exist(client_id, client_monitor_list_lock)) {
+        client_monitor_list_->at(client_id, client_monitor_list_lock)->join();
+        client_monitor_list_->at(client_id, client_monitor_list_lock).release();
+    }
     // Remove the client.
     clear_message_status_map(client_id, clientinfo_list_lock);
     clientinfo_list_->erase(client_id, clientinfo_list_lock);
 }
 
+void Server::monitor_client(uint8_t client_id) {
+    // Check if the client id is valid.
+    std::unique_lock<std::mutex> clientinfo_list_lock(clientinfo_list_->get_mutex());
+    if (!clientinfo_list_->check_exist(client_id, clientinfo_list_lock)) {
+        throw std::runtime_error("Server Monitor Client failed: invalid client id.");
+    }
+
+    // Get the sender and receiver.
+    Sender *sender = clientinfo_list_->at(client_id, clientinfo_list_lock)->get_sender();
+    Receiver *receiver = clientinfo_list_->at(client_id, clientinfo_list_lock)->get_receiver();
+
+    clientinfo_list_lock.unlock();
+
+    while (receiver->get_lost_heart_beat() < MAX_LOST_HEART_BEAT) {
+        sleep(HEART_BEAT_INTERVAL);
+        // Send a HEART BEAT.
+        sender->send_heart_beat(client_id);
+        // Pre-increment the lost_heart_beat.
+        receiver->inc_lost_heart_beat();
+    }
+}
+
 void Server::join_threads() {
-    std::unique_lock<std::mutex> lock(client_thread_list_->get_mutex());
-    for (auto it = client_thread_list_->begin(lock); it != client_thread_list_->end(lock); it++) {
+    std::unique_lock<std::mutex> client_recv_list_lock(client_recv_list_->get_mutex());
+    for (
+        auto it = client_recv_list_->begin(client_recv_list_lock);
+        it != client_recv_list_->end(client_recv_list_lock);
+        it++
+    ) {
         it->second->join();
     }
 }

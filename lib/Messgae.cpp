@@ -6,10 +6,13 @@ std::atomic_uint16_t Message::pakage_id_counter_ = 0;
 Message::Message(bool increase_pakage_id) {
     if (increase_pakage_id) {
         pakage_id_ = pakage_id_counter_++;
+        if (pakage_id_counter_ == 0) {
+            pakage_id_ = pakage_id_counter_++;
+        }
     } else {
         pakage_id_ = pakage_id_counter_;
     }
-    type_ = MessageType::BLANK;
+    type_ = MessageType::HEARTBEAT;
     sender_id_ = 0;
     receiver_id_ = 0;
     data_ = {};
@@ -55,6 +58,9 @@ Message::Message(
     // overflow is fine, it's unsigned
     if (increase_pakage_id) {
         pakage_id_ = pakage_id_counter_++;
+        if (pakage_id_counter_ == 0) {
+            pakage_id_ = pakage_id_counter_++;
+        }
     } else {
         pakage_id_ = pakage_id_counter_;
     }

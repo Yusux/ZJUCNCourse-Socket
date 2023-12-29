@@ -89,3 +89,14 @@ send_res_t Sender::send_forward(Message message) {
     size = send(sockfd_, reinterpret_cast<void *>(buffer_.data()), size, 0);
     return std::make_pair(message.get_pakage_id(), size);
 }
+
+void Sender::send_heart_beat(uint16_t receiver_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    Message message;
+    message.set_pakage_id(0);
+    message.set_type(MessageType::HEARTBEAT);
+    message.set_sender_id(self_id_);
+    message.set_receiver_id(receiver_id);
+    ssize_t size = message.serialize(buffer_);
+    size = send(sockfd_, reinterpret_cast<void *>(buffer_.data()), size, 0);
+}
