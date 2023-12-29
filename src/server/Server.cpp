@@ -224,6 +224,11 @@ void Server::receive_from_client(uint8_t client_id) {
     );
     output_queue_->push("[INFO] waiting for message...");
     while (receiver->receive(message)) {
+        // Check if the message is from the client.
+        if (message.get_sender_id() != client_id) {
+            // Not from the client, do nothing.
+            continue;
+        }
         // Print the message.
         output_queue_->push("[DEBUG] Received message: " + message.to_string());
         // check the type of the message
