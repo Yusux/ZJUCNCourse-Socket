@@ -4,6 +4,7 @@
 #include <chrono>
 #include <ctime>
 #include <cstring>
+#include <netinet/tcp.h>
 
 ClientInfo::ClientInfo(
     std::string name,
@@ -175,6 +176,17 @@ uint8_t Server::wait_for_client() {
         close(client_sockfd);
         throw std::runtime_error("Server Wait For Client failed: no free client id.");
     }
+
+    // Set socket to keepalive
+    int keepalive = 1;
+    int keepidle = 60;
+    int keepinterval = 5;
+    int keepcount = 3;
+    setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive, sizeof(keepalive));
+    setsockopt(sockfd_, SOL_TCP, TCP_KEEPIDLE, (void *)&keepidle, sizeof(keepidle));
+    setsockopt(sockfd_, SOL_TCP, TCP_KEEPINTVL, (void *)&keepinterval, sizeof(keepinterval));
+    setsockopt(sockfd_, SOL_TCP, TCP_KEEPCNT, (void *)&keepcount, sizeof(keepcount));
+
     // Create a client info.
     std::unique_ptr<ClientInfo> client_info = std::make_unique<ClientInfo>(
         client_name,
