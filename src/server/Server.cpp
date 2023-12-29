@@ -99,7 +99,13 @@ Server::Server(
 }
 
 Server::~Server() {
-    output_queue_->push("[INFO] Release the server.");
+    // Join all the client threads.
+    output_queue_->push("[INFO] Releasing the threads.");
+    output_message();
+    join_threads();
+    output_queue_->push("[INFO] Released the threads.");
+    output_message();
+
     // Close all the client connections.
     // Get shared_mutex for clientinfo_list_.
     std::unique_lock<std::mutex> clientinfo_list_lock(clientinfo_list_->get_mutex());
@@ -125,14 +131,11 @@ Server::~Server() {
         );
     }
 
-    output_queue_->push("[INFO] Release the client threads.");
-    // Join all the client threads.
-    join_threads();
-
     // Close the socket.
     close(sockfd_);
 
     // Output the remaining messages.
+    output_queue_->push("[INFO] Released the server.");
     output_message();
 }
 
@@ -254,7 +257,7 @@ void Server::receive_from_client(uint8_t client_id) {
     output_queue_->push("[INFO] waiting for message...");
     // delete the unique_lock
     clientinfo_list_lock.unlock();
-    while (receiver->receive(message)) {
+    while (receiver->receive(message) && running_) {
         std::unique_lock<std::mutex> lock(clientinfo_list_->get_mutex());
         // Check if the message is from the client.
         if (message.get_sender_id() != client_id) {
@@ -419,9 +422,17 @@ void Server::monitor_client(uint8_t client_id) {
     while (receiver->get_lost_heart_beat() < MAX_LOST_HEART_BEAT) {
         sleep(HEART_BEAT_INTERVAL);
         // Send a HEART BEAT.
-        sender->send_heart_beat(client_id);
-        // Pre-increment the lost_heart_beat.
-        receiver->inc_lost_heart_beat();
+        if (running_) {
+            // If the server is not shutdown, send a HEART BEAT.
+            sender->send_heart_beat(client_id);
+            // Pre-increment the lost_heart_beat.
+            receiver->inc_lost_heart_beat();
+        } else {
+            // If the server is shutdown, break.
+            // Notifies the receiver to stop.
+            receiver->set_lost_heart_beat(MAX_LOST_HEART_BEAT);
+            break;
+        }
     }
 }
 
