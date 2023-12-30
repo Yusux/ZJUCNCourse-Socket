@@ -46,12 +46,20 @@ This project is developed and tested on Arch Linux (6.6.2-arch1-1) and Debian 12
 > If you want to transfer the project to other platforms, you can try to ~~remove the epoll part (or~~ use `select` `poll` instead of `epoll` ~~)~~. It should work. :)
 > Moreover, in this project, I use `future` in main function to wait for user's input. It can be replaced by `select` `poll` `epoll` to wait for both user's input and message queue.
 
-<!-- see linux release version: `cat /etc/*-release` -->
+### Compile
+
+By using Makefile, you can compile the project by:
+
+``` bash
+make
+```
+
+This will make the server and client in the root directory with the name `server.out` and `client.out`.
 
 ### Server
 
 ``` bash
-./server [host] [address] [port]    # Need to provide in sequence
+./server.out [host] [address] [port]    # Need to provide in sequence
 ```
 
 > Graceful exit has been implemented in the server. Since we need to wait for monitor thread to exit, the server will wait for at most 10-20 seconds to exit.
@@ -59,7 +67,7 @@ This project is developed and tested on Arch Linux (6.6.2-arch1-1) and Debian 12
 ### Client
 
 ``` bash
-./client [host] [address] [port]    # Need to provide in sequence
+./client.out [host] [address] [port]    # Need to provide in sequence
 ```
 
 After the client starts, it can be operated by the following commands:
