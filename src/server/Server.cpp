@@ -182,10 +182,10 @@ uint8_t Server::wait_for_client() {
     std::unique_lock<std::mutex> clientinfo_list_lock(clientinfo_list_->get_mutex());
     while (clientinfo_list_->check_exist(id, clientinfo_list_lock)) {
         id++;
-    }
-    if (id == 0) {
-        close(client_sockfd);
-        throw std::runtime_error("Server Wait For Client failed: no free client id.");
+        if (id == 0) {
+            close(client_sockfd);
+            throw std::runtime_error("Server Wait For Client failed: no free client id.");
+        }
     }
 
     // Create a client info.
