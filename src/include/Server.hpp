@@ -73,7 +73,6 @@ private:
     /*
      * Keep receiving messages from the client.
      * @param client_id The id of the client.
-     * @param message The message to be received.
      */
     void receive_from_client(uint8_t client_id);
 
