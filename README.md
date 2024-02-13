@@ -297,6 +297,6 @@ When client requests send message, the client will send a REQSEND packet to the 
 +------------+                       +------------+                       +------------+
 ```
 
-## Declaration
+## License
 
-ONLY FOR REFERENCE. Please **DO NOT COPY** the code **DIRECTLY**.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
